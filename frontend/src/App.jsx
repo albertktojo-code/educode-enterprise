@@ -1,46 +1,43 @@
 import { useEffect, useState } from 'react';
 
 function App() {
-  const [status, setStatus] = useState("Conectando...");
-  const [error, setError] = useState(null);
-
-  // A variável de ambiente VITE_API_URL é definida no painel da Vercel
+  const [itens, setItens] = useState([]);
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
   useEffect(() => {
-    async function checkBackend() {
-      try {
-        const response = await fetch(`${API_URL}/status`);
-        if (!response.ok) throw new Error("Servidor não respondeu corretamente");
-        
-        const data = await response.json();
-        setStatus(data.mensagem);
-      } catch (err) {
-        console.error("Erro na conexão:", err);
-        setError("Não foi possível conectar ao backend.");
-        setStatus("Offline");
-      }
-    }
-
-    checkBackend();
+    fetch(`${API_URL}/api/itens`)
+      .then(res => res.json())
+      .then(data => setItens(data))
+      .catch(err => console.error("Erro ao carregar itens:", err));
   }, [API_URL]);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
-      <h1 className="text-4xl font-bold mb-4">EduCode Enterprise</h1>
+    <div className="min-h-screen bg-gray-900 text-white p-8">
+      <h1 className="text-3xl font-bold mb-6 text-center">EduCode Enterprise</h1>
       
-      <div className={`p-6 rounded-lg shadow-lg border ${error ? 'border-red-500 bg-red-900/20' : 'border-green-500 bg-green-900/20'}`}>
-        <p className="text-xl">
-          Status da API: 
-          <span className="ml-2 font-mono font-bold">
-            {status}
-          </span>
-        </p>
-        {error && <p className="text-red-400 mt-2">{error}</p>}
+      <div className="max-w-4xl mx-auto bg-gray-800 rounded-lg overflow-hidden shadow-xl border border-gray-700">
+        <table className="w-full text-left">
+          <thead className="bg-gray-700">
+            <tr>
+              <th className="p-4">ID</th>
+              <th className="p-4">Nome do Projeto</th>
+              <th className="p-4">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {itens.map((item) => (
+              <tr key={item.id} className="border-b border-gray-600 hover:bg-gray-700 transition">
+                <td className="p-4">{item.id}</td>
+                <td className="p-4">{item.nome}</td>
+                <td className="p-4 text-blue-400 font-semibold">{item.status}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-
-      <p className="mt-8 text-gray-500 text-sm">
-        API Conectada em: {API_URL}
+      
+      <p className="mt-8 text-center text-gray-500 text-xs">
+        Conectado em: {API_URL}
       </p>
     </div>
   );
