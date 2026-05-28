@@ -19,9 +19,11 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+console.log("Servidor iniciado. Conectado ao banco.");
+
 // --- ROTAS ---
 
-// Rota de Listagem
+// Rota de Teste/Listagem
 app.get('/api/itens', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM projetos ORDER BY id ASC');
@@ -31,21 +33,17 @@ app.get('/api/itens', async (req, res) => {
   }
 });
 
-// Rota de Login (Otimizada)
+// Rota de Login Corrigida
 app.post('/api/login', async (req, res) => {
-  let { email, senha } = req.body;
+  const { email, senha } = req.body;
 
   if (!email || !senha) {
     return res.status(400).json({ error: "Email e senha são obrigatórios" });
   }
 
-  // Sanitização
   const emailLimpo = email.trim().toLowerCase();
 
   try {
-    console.log(`Tentando login para: ${emailLimpo}`);
-    
-    // Busca normalizada
     const result = await pool.query('SELECT * FROM usuarios WHERE LOWER(email) = $1', [emailLimpo]);
     
     if (result.rows.length === 0) {
@@ -53,16 +51,13 @@ app.post('/api/login', async (req, res) => {
     }
 
     const usuario = result.rows[0];
-
-    // Comparação de senha
     const senhaValida = await bcrypt.compare(senha, usuario.senha);
+    
     if (!senhaValida) {
       return res.status(401).json({ error: "Senha incorreta" });
     }
 
-    // Geração de token
     const token = jwt.sign({ id: usuario.id, email: usuario.email }, JWT_SECRET, { expiresIn: '1h' });
-    
     res.json({ token, message: "Login realizado com sucesso!" });
   } catch (err) {
     console.error("Erro no login:", err);
@@ -71,4 +66,18 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Rota de Registro
-app.
+app.post('/api/registro', async (req, res) => {
+  const { email, senha } = req.body;
+  try {
+    const salt = await bcrypt.genSalt(10);
+    const senhaHash = await bcrypt.hash(senha, salt);
+    await pool.query('INSERT INTO usuarios (email, senha) VALUES ($1, $2)', [email.toLowerCase(), senhaHash]);
+    res.status(201).json({ message: "Usuário criado com sucesso!" });
+  } catch (err) {
+    console.error("Erro no registro:", err);
+    res.status(500).json({ error: "Erro ao registrar usuário" });
+  }
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
