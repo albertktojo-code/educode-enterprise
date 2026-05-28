@@ -7,69 +7,59 @@ require('dotenv').config();
 
 const app = express();
 
-// --- MIDDLEWARES ESSENCIAIS ---
 app.use(cors({ origin: '*' }));
-app.use(express.json()); // SE ISSO FALHAR, O POST NÃO FUNCIONA
+app.use(express.json());
 
-// Configurações
 const JWT_SECRET = process.env.JWT_SECRET || 'segredo_super_seguro';
 
+// Configuração do pool com log da URL (para confirmar o ambiente)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// --- ROTAS ---
+console.log("Servidor iniciado. Conectado ao banco: " + process.env.DATABASE_URL.substring(0, 20) + "...");
 
-// 1. Rota de Listagem
+// Rota de Login com Diagnóstico
+app.post('/api/login', async (req, res) => {
+  const { email, senha } = req.body;
+  
+  console.log("Tentativa de login recebida para:", email);
+
+  try {
+    const result = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+    
+    if (result.rows.length === 0) {
+      console.log("Erro: Usuário não encontrado no banco.");
+      return res.status(401).json({ error: "Usuário não encontrado" });
+    }
+
+    const usuario = result.rows[0];
+    console.log("Usuário encontrado. Verificando senha...");
+
+    const senhaValida = await bcrypt.compare(senha, usuario.senha);
+    if (!senhaValida) {
+      console.log("Erro: Senha incorreta.");
+      return res.status(401).json({ error: "Senha incorreta" });
+    }
+
+    const token = jwt.sign({ id: usuario.id, email: usuario.email }, JWT_SECRET, { expiresIn: '1h' });
+    console.log("Login realizado com sucesso para:", email);
+
+    res.json({ token, message: "Login realizado com sucesso!" });
+  } catch (err) {
+    console.error("Erro interno do servidor:", err);
+    res.status(500).json({ error: "Erro no servidor" });
+  }
+});
+
+// Outras rotas permanecem iguais...
 app.get('/api/itens', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM projetos ORDER BY id ASC');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: "Erro no banco de dados" });
-  }
-});
-
-// 2. Rota de Login (POST)
-app.post('/api/login', async (req, res) => {
-  const { email, senha } = req.body;
-
-  try {
-    const result = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
-    const usuario = result.rows[0];
-
-    if (!usuario) {
-      return res.status(401).json({ error: "Usuário não encontrado" });
-    }
-
-    const senhaValida = await bcrypt.compare(senha, usuario.senha);
-    if (!senhaValida) {
-      return res.status(401).json({ error: "Senha incorreta" });
-    }
-
-    const token = jwt.sign({ id: usuario.id, email: usuario.email }, JWT_SECRET, { expiresIn: '1h' });
-
-    res.json({ token, message: "Login realizado com sucesso!" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erro no servidor" });
-  }
-});
-
-// 3. Rota de Registro
-app.post('/api/registro', async (req, res) => {
-  const { email, senha } = req.body;
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    const senhaHash = await bcrypt.hash(senha, salt);
-    
-    await pool.query('INSERT INTO usuarios (email, senha) VALUES ($1, $2)', [email, senhaHash]);
-    res.status(201).json({ message: "Usuário criado com sucesso!" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erro ao registrar usuário" });
+    res.status(500).json({ error: "Erro ao listar itens" });
   }
 });
 
