@@ -7,61 +7,68 @@ require('dotenv').config();
 
 const app = express();
 
+// Middlewares
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET || 'segredo_super_seguro';
 
-// Configuração do pool com log da URL (para confirmar o ambiente)
+// Pool de Conexão
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-console.log("Servidor iniciado. Conectado ao banco: " + process.env.DATABASE_URL.substring(0, 20) + "...");
+// --- ROTAS ---
 
-// Rota de Login com Diagnóstico
-app.post('/api/login', async (req, res) => {
-  const { email, senha } = req.body;
-  
-  console.log("Tentativa de login recebida para:", email);
-
-  try {
-    const result = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
-    
-    if (result.rows.length === 0) {
-      console.log("Erro: Usuário não encontrado no banco.");
-      return res.status(401).json({ error: "Usuário não encontrado" });
-    }
-
-    const usuario = result.rows[0];
-    console.log("Usuário encontrado. Verificando senha...");
-
-    const senhaValida = await bcrypt.compare(senha, usuario.senha);
-    if (!senhaValida) {
-      console.log("Erro: Senha incorreta.");
-      return res.status(401).json({ error: "Senha incorreta" });
-    }
-
-    const token = jwt.sign({ id: usuario.id, email: usuario.email }, JWT_SECRET, { expiresIn: '1h' });
-    console.log("Login realizado com sucesso para:", email);
-
-    res.json({ token, message: "Login realizado com sucesso!" });
-  } catch (err) {
-    console.error("Erro interno do servidor:", err);
-    res.status(500).json({ error: "Erro no servidor" });
-  }
-});
-
-// Outras rotas permanecem iguais...
+// Rota de Listagem
 app.get('/api/itens', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM projetos ORDER BY id ASC');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: "Erro ao listar itens" });
+    res.status(500).json({ error: "Erro no banco de dados" });
   }
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+// Rota de Login (Otimizada)
+app.post('/api/login', async (req, res) => {
+  let { email, senha } = req.body;
+
+  if (!email || !senha) {
+    return res.status(400).json({ error: "Email e senha são obrigatórios" });
+  }
+
+  // Sanitização
+  const emailLimpo = email.trim().toLowerCase();
+
+  try {
+    console.log(`Tentando login para: ${emailLimpo}`);
+    
+    // Busca normalizada
+    const result = await pool.query('SELECT * FROM usuarios WHERE LOWER(email) = $1', [emailLimpo]);
+    
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: "Usuário não encontrado" });
+    }
+
+    const usuario = result.rows[0];
+
+    // Comparação de senha
+    const senhaValida = await bcrypt.compare(senha, usuario.senha);
+    if (!senhaValida) {
+      return res.status(401).json({ error: "Senha incorreta" });
+    }
+
+    // Geração de token
+    const token = jwt.sign({ id: usuario.id, email: usuario.email }, JWT_SECRET, { expiresIn: '1h' });
+    
+    res.json({ token, message: "Login realizado com sucesso!" });
+  } catch (err) {
+    console.error("Erro no login:", err);
+    res.status(500).json({ error: "Erro interno no servidor" });
+  }
+});
+
+// Rota de Registro
+app.
