@@ -1,8 +1,16 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Login from './components/Login';
 
-function Dashboard() {
+function Dashboard({ setAuth }) {
   const emailUsuario = localStorage.getItem('userEmail') || 'Usuário';
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.clear();
+    setAuth(false); // Limpa o estado e força o redirecionamento
+    navigate('/login');
+  };
 
   return (
     <div style={{ display: 'flex', height: '100vh' }}>
@@ -13,31 +21,28 @@ function Dashboard() {
           <li style={{ margin: '10px 0' }}>Relatórios</li>
           <li style={{ margin: '10px 0' }}>Configurações</li>
         </ul>
-        <button onClick={() => { localStorage.clear(); window.location.reload(); }}>
-          Sair
-        </button>
+        <button onClick={handleLogout}>Sair</button>
       </nav>
-
       <main style={{ flex: 1, padding: '20px' }}>
-        <h1>Bem-vindo ao Sistema!</h1>
-        <p>Olá, <strong>{emailUsuario}</strong>!</p>
+        <h1>Bem-vindo!</h1>
+        <p>Olá, <strong>{emailUsuario}</strong>.</p>
       </main>
     </div>
   );
 }
 
 function App() {
-  const isAuthenticated = !!localStorage.getItem('token');
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
 
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<Login setAuth={setIsAuthenticated} />} />
         <Route 
           path="/dashboard" 
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? <Dashboard setAuth={setIsAuthenticated} /> : <Navigate to="/login" />} 
         />
-        <Route path="*" element={<Navigate to="/dashboard" />} />
+        <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
       </Routes>
     </Router>
   );
