@@ -7,10 +7,10 @@ function Login({ setAuth }) {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async () => {
-    if (!email || !senha) return alert("Preencha todos os campos");
-    
+  const handleLogin = async (e) => {
+    e.preventDefault();
     setLoading(true);
+    
     try {
       const response = await fetch('https://educode-enterprise-2.onrender.com/api/login', {
         method: 'POST',
@@ -18,8 +18,9 @@ function Login({ setAuth }) {
         body: JSON.stringify({ email, senha })
       });
 
+      // Tratamento para servidor em modo de espera
       if (response.status >= 500) {
-        alert("O servidor está a acordar. Aguarde 5 segundos e clique novamente.");
+        alert("O servidor está a acordar (modo inativo). Aguarde 5 segundos e tente novamente.");
         setLoading(false);
         return;
       }
@@ -29,12 +30,10 @@ function Login({ setAuth }) {
       if (response.ok) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('userEmail', email);
-        
-        // Força a atualização do estado global antes de navegar
-        setAuth(true); 
+        setAuth(true); // Atualiza o estado global e redireciona
         navigate('/dashboard');
       } else {
-        alert("Erro no Login: " + (data.error || "Credenciais inválidas"));
+        alert("Erro: " + (data.error || "Credenciais inválidas"));
       }
     } catch (error) {
       alert("Erro de conexão. Verifique a rede.");
@@ -46,25 +45,25 @@ function Login({ setAuth }) {
   return (
     <div style={{ textAlign: 'center', marginTop: '50px' }}>
       <h2>Login</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
         <input 
-          type="text" 
+          type="email" 
           placeholder="Seu e-mail" 
           value={email} 
           onChange={(e) => setEmail(e.target.value)} 
-          autoComplete="off"
+          required
         />
         <input 
           type="password" 
           placeholder="Sua senha" 
           value={senha} 
           onChange={(e) => setSenha(e.target.value)} 
-          autoComplete="new-password"
+          required
         />
-        <button onClick={handleLogin} disabled={loading}>
-          {loading ? "A processar..." : "Entrar"}
+        <button type="submit" disabled={loading}>
+          {loading ? "A entrar..." : "Entrar"}
         </button>
-      </div>
+      </form>
     </div>
   );
 }

@@ -8,7 +8,7 @@ function Dashboard({ setAuth }) {
 
   const handleLogout = () => {
     localStorage.clear();
-    setAuth(false); // Limpa o estado e força o redirecionamento
+    setAuth(false);
     navigate('/login');
   };
 
@@ -24,7 +24,7 @@ function Dashboard({ setAuth }) {
         <button onClick={handleLogout}>Sair</button>
       </nav>
       <main style={{ flex: 1, padding: '20px' }}>
-        <h1>Bem-vindo!</h1>
+        <h1>Bem-vindo ao Sistema!</h1>
         <p>Olá, <strong>{emailUsuario}</strong>.</p>
       </main>
     </div>
