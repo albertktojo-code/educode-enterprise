@@ -1,4 +1,17 @@
 const express = require('express');
+const cors = require('cors');
+const app = express();
+
+// A configuração correta é esta:
+app.use(cors({
+  origin: '*', // Permite requisições de qualquer origem (seu localhost, Vercel, etc.)
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(express.json());
+
+const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
