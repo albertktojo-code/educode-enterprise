@@ -4,6 +4,7 @@ function ListaRegistros() {
   const [dados, setDados] = useState([]);
   const [novoNome, setNovoNome] = useState('');
 
+  // Função para buscar dados
   const buscarDados = async () => {
     try {
       const response = await fetch('https://educode-enterprise-2.onrender.com/api/itens', {
@@ -16,6 +17,7 @@ function ListaRegistros() {
     }
   };
 
+  // Função para adicionar item
   const adicionar = async () => {
     if (!novoNome.trim()) return;
     await fetch('https://educode-enterprise-2.onrender.com/api/itens', {
@@ -30,6 +32,7 @@ function ListaRegistros() {
     buscarDados();
   };
 
+  // Função para excluir item
   const deletar = async (id) => {
     if (!window.confirm("Deseja realmente excluir este projeto?")) return;
     
@@ -44,13 +47,13 @@ function ListaRegistros() {
 
   return (
     <div style={{ padding: '20px' }}>
-      <h3>Gerenciar Projetos</h3>
+      <h3>Meus Projetos</h3>
       
       <div style={{ marginBottom: '20px' }}>
         <input 
           value={novoNome} 
           onChange={(e) => setNovoNome(e.target.value)} 
-          placeholder="Nome do projeto..."
+          placeholder="Nome do novo projeto..."
           style={{ padding: '8px', marginRight: '10px' }}
         />
         <button onClick={adicionar} style={{ padding: '8px 15px' }}>Adicionar</button>
@@ -59,18 +62,28 @@ function ListaRegistros() {
       <table border="1" style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Nome do Projeto</th>
-            <th>Ações</th>
+            <th style={{ padding: '10px' }}>ID</th>
+            <th style={{ padding: '10px' }}>Nome do Projeto</th>
+            <th style={{ padding: '10px' }}>Ações</th>
           </tr>
         </thead>
         <tbody>
           {dados.map((item) => (
             <tr key={item.id}>
-              <td style={{ padding: '8px' }}>{item.id}</td>
+              <td style={{ padding: '8px', textAlign: 'center' }}>{item.id}</td>
               <td style={{ padding: '8px' }}>{item.nome}</td>
               <td style={{ padding: '8px', textAlign: 'center' }}>
-                <button onClick={() => deletar(item.id)} style={{ color: 'white', background: 'red', border: 'none', padding: '5px 10px', cursor: 'pointer' }}>
+                <button 
+                  onClick={() => deletar(item.id)} 
+                  style={{ 
+                    color: 'white', 
+                    background: '#ff4d4d', 
+                    border: 'none', 
+                    padding: '5px 10px', 
+                    cursor: 'pointer',
+                    borderRadius: '4px' 
+                  }}
+                >
                   Excluir
                 </button>
               </td>
@@ -81,5 +94,3 @@ function ListaRegistros() {
     </div>
   );
 }
-
-export default ListaRegistros;
