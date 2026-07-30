@@ -1,0 +1,28 @@
+.crp-layout { display: grid; grid-template-columns: 290px 1fr; min-height: calc(100vh - 64px); background: var(--surface-muted, #f5f6f8); }
+.crp-sidebar { background: var(--surface, #fff); border-right: 1px solid #dfe3e8; padding: 20px; }
+.crp-sidebar header, .crp-card-header, .crp-hero { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.crp-thread-list { display: grid; gap: 10px; margin-top: 18px; }
+.crp-thread { text-align: left; border: 1px solid #dfe3e8; border-radius: 12px; background: #fff; padding: 12px; cursor: pointer; }
+.crp-thread.is-active { outline: 2px solid currentColor; }
+.crp-thread small, .crp-card small, .crp-release-list small { display: block; opacity: .72; margin-top: 4px; }
+.crp-main { padding: 24px; overflow: auto; }
+.crp-hero { margin-bottom: 20px; }
+.crp-eyebrow { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.crp-canvas-placeholder { min-height: 360px; display: grid; place-items: center; border: 2px dashed #bcc5cf; border-radius: 16px; background: #fff; text-align: center; padding: 32px; }
+.crp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+.crp-card { background: #fff; border: 1px solid #dfe3e8; border-radius: 16px; padding: 18px; }
+.crp-badge, .crp-decision { border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 700; }
+.crp-badge.warning, .crp-decision.request_changes { background: #fff3cd; }
+.crp-badge.success, .crp-badge.published, .crp-decision.approve { background: #d9f7e5; }
+.crp-checklist { list-style: none; padding: 0; display: grid; gap: 12px; }
+.crp-checklist li { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; }
+.crp-approval-grid, .crp-release-list { display: grid; gap: 10px; }
+.crp-approval-grid article, .crp-release-list article { border: 1px solid #e4e7eb; border-radius: 12px; padding: 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.crp-blockers { padding-left: 20px; }
+.crp-card label { display: grid; gap: 6px; margin: 14px 0; }
+.crp-card select, .crp-card button, .crp-hero button { min-height: 40px; border-radius: 10px; padding: 8px 12px; }
+@media (max-width: 960px) {
+  .crp-layout { grid-template-columns: 1fr; }
+  .crp-sidebar { border-right: 0; border-bottom: 1px solid #dfe3e8; }
+  .crp-grid { grid-template-columns: 1fr; }
+}

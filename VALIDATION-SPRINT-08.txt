@@ -1,0 +1,30 @@
+EduCode Enterprise 2.0 — Validação da Sprint 08
+Data: 22/07/2026
+
+RESULTADOS CONCLUÍDOS
+- Python compileall (backend e testes): aprovado.
+- Pytest: 51 testes aprovados.
+- SQLAlchemy configure_mappers(): aprovado.
+- OpenAPI: 118 caminhos carregados.
+- Rotas do Estúdio do Professor: 14 caminhos.
+- Alembic offline até 0013_teacher_studio_canvas: aprovado.
+- SQL PostgreSQL compilado: 1.421 linhas.
+- TypeScript: verificação sintática de todos os arquivos src com --noCheck aprovada.
+- package-lock.json: URLs públicas do registry.npmjs.org; nenhum registro privado encontrado.
+
+LIMITAÇÕES DESTE AMBIENTE
+- O índice de pacotes disponível não forneceu algumas dependências do backend (pwdlib, pgvector e asyncpg). Para a validação de importação e testes foram utilizados stubs temporários leves fora do pacote final. Nenhum stub foi incluído na entrega.
+- npm ci não foi concluído porque o acesso ao registro de pacotes excedeu o limite de execução. Por isso, o build completo do Vite e o ESLint não foram repetidos neste ambiente.
+- Docker/PostgreSQL não estavam disponíveis. A migration não foi executada contra um banco real; a cadeia completa foi validada por compilação SQL offline para PostgreSQL.
+
+VALIDAÇÃO RECOMENDADA NO AMBIENTE DO USUÁRIO
+1. Copiar o .env funcional da versão anterior.
+2. Executar: docker compose down --remove-orphans
+3. Executar: docker compose up --build
+4. Confirmar: docker compose exec backend alembic current
+5. Confirmar health: http://localhost:8000/api/v1/health
+6. Confirmar frontend: http://localhost:5173/estudio-professor
+7. No frontend local, opcionalmente executar: npm ci && npm run build && npm run lint
+
+MIGRATION HEAD
+0013_teacher_studio_canvas

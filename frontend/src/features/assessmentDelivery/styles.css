@@ -1,0 +1,16 @@
+.assessment-delivery-page { display: grid; gap: 1.25rem; padding: 1.5rem; }
+.assessment-delivery-kicker { margin: 0; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.assessment-delivery-page h1 { margin: .25rem 0; }
+.assessment-delivery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; }
+.assessment-delivery-grid article, .assessment-delivery-panel, .assessment-delivery-notice { border: 1px solid currentColor; border-radius: 12px; padding: 1rem; }
+.assessment-delivery-grid strong { display: block; font-size: 1.5rem; }
+.assessment-delivery-grid span { display: block; opacity: .72; margin: .4rem 0; }
+.assessment-delivery-panel { overflow-x: auto; }
+.assessment-delivery-panel table { width: 100%; border-collapse: collapse; }
+.assessment-delivery-panel th, .assessment-delivery-panel td { padding: .7rem; text-align: left; border-bottom: 1px solid currentColor; }
+.assessment-delivery-error { border: 1px solid currentColor; padding: 1rem; border-radius: 10px; }
+.assessment-delivery-search { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; }
+.assessment-delivery-search label { width: 100%; }
+.assessment-delivery-search input { min-width: 280px; padding: .65rem; }
+.assessment-delivery-page button { padding: .65rem 1rem; cursor: pointer; }
+.assessment-delivery-page button:disabled { cursor: not-allowed; opacity: .55; }

@@ -1,0 +1,18 @@
+EVENTS = {
+    "visual_library.created",
+    "visual_library.updated",
+    "character.created",
+    "character.version_created",
+    "character.variant_created",
+    "character.published",
+    "scenario.created",
+    "scenario.version_created",
+    "continuity.recorded",
+    "consistency.check_created",
+    "consistency.check_resolved",
+    "generation_batch.created",
+    "generation_batch.started",
+    "generation_batch.paused",
+    "generation_batch.completed",
+    "generation_batch.cancelled",
+}

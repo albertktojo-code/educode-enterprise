@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
+
+# Local persistent storage
+backend/storage/
+creative-storage/
+storage/
+
+# Sprint 13 operational artifacts
+backups/
+*.dump
+*.tar.gz
+.env.production
+.env.staging
+
+# Local sprint state and recoverable source copies
+.sprint-backups/
+.sprint_backups/
+.sprint-installations/
+*.bak
+*.bak_*
+*.backup
+*.backup_*
+
+# Local diagnostics
+*.log
+*-build-error.txt

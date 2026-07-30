@@ -1,0 +1,55 @@
+=== Python compileall ===
+APROVADO
+
+=== Ruff ===
+All checks passed!
+
+=== mypy ===
+Success: no issues found in 75 source files
+
+=== pytest ===
+..........................................                               [100%]
+42 passed in 0.34s
+
+=== Alembic ===
+0011_comic_review_control (head)
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Generating static SQL
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Initial foundation.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002_auth_rbac, Authentication, organizations and RBAC.
+INFO  [alembic.runtime.migration] Running upgrade 0002_auth_rbac -> 0003_education_core, Education core.
+INFO  [alembic.runtime.migration] Running upgrade 0003_education_core -> 0004_documents, Document storage and PDF extraction.
+INFO  [alembic.runtime.migration] Running upgrade 0004_documents -> 0005_document_structure, Document pages, chapters and OCR preparation.
+INFO  [alembic.runtime.migration] Running upgrade 0005_document_structure -> 0006_pedagogical_planning, Pedagogical planning, learning units and generation sources.
+INFO  [alembic.runtime.migration] Running upgrade 0006_pedagogical_planning -> 0007_creative_library, Creative library, creative bible and teaching sequences.
+INFO  [alembic.runtime.migration] Running upgrade 0007_creative_library -> 0008_vector_retrieval, Hierarchical chunks, deterministic embeddings and hybrid retrieval.
+INFO  [alembic.runtime.migration] Running upgrade 0008_vector_retrieval -> 0009_rag_context_orchestration, RAG context orchestration, citations and pedagogical-narrative contracts.
+INFO  [alembic.runtime.migration] Running upgrade 0009_rag_context_orchestration -> 0010_comic_generation_editor, Structured comic generation, granular editor and versioning.
+INFO  [alembic.runtime.migration] Running upgrade 0010_comic_generation_editor -> 0011_comic_review_control, Comic review, controlled regeneration and visual preparation.
+SQL lines: 1230
+
+=== OpenAPI ===
+OpenAPI paths: 99
+Comic paths: 26
+
+=== Frontend build ===
+
+> educode-enterprise-frontend@0.7.1 build
+> tsc -b && vite build
+
+[36mvite v8.1.5 [32mbuilding client environment for production...[36m[39m
+[2Ktransforming...✓ 50 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.47 kB │ gzip:   0.28 kB
+dist/assets/index-Q2tAg-ca.css   30.02 kB │ gzip:   7.05 kB
+dist/assets/index-BpnFcjGz.js   430.22 kB │ gzip: 116.76 kB
+
+[32m✓ built in 395ms[39m
+
+=== Frontend lint ===
+
+> educode-enterprise-frontend@0.7.1 lint
+> eslint .
+

@@ -1,0 +1,30 @@
+EDUCODE ENTERPRISE 2.0 — VALIDATION SPRINT 12
+Data: 2026-07-22
+
+Backend
+- Python compileall: APROVADO
+- Pytest: 95 testes aprovados
+- Modelos SQLAlchemy: 100 tabelas carregadas
+- Tabelas AI Fabric: 10
+- FastAPI OpenAPI: 234 caminhos
+- Caminhos /api/v1/ai: 15
+- Modo mock estruturado: APROVADO
+- Contrato de provedor HTTP genérico com MockTransport: APROVADO
+- Validação de questões e HQs: APROVADO
+- Prompt injection e anonimização: APROVADO
+
+Banco de dados
+- Cadeia Alembic até 0021_ai_orchestration_runtime: APROVADA
+- SQL PostgreSQL offline: 2936 linhas
+- CREATE TABLE ai_module_links: 1 ocorrência
+- Novos enums PostgreSQL na migration 0021: nenhum
+
+Frontend
+- 65 arquivos TypeScript/TSX transpilados sintaticamente: APROVADO
+- npm ci: não concluído dentro do limite do ambiente
+- build Vite e ESLint completos: confirmar no Docker/local
+
+Limitações do ambiente
+- Docker e PostgreSQL real não estavam disponíveis para teste runtime.
+- Ruff e mypy não estavam instalados no runtime de validação.
+- O npm registry não concluiu a instalação dentro do limite da execução.

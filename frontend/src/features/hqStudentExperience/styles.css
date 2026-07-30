@@ -1,0 +1,150 @@
+.student-hq-shell {
+  min-height: 100vh;
+  padding: 24px;
+  color: #263047;
+  background: #f2f5fb;
+}
+.student-hq-shell.is-high-contrast {
+  color: #fff;
+  background: #000;
+}
+.student-hq-header,
+.student-hq-footer,
+.student-hq-progress,
+.student-hq-content,
+.student-hq-reader > header,
+.student-hq-activity > header,
+.student-hq-reader > footer,
+.student-hq-activity-actions {
+  display: flex;
+  gap: 12px;
+}
+.student-hq-header,
+.student-hq-footer,
+.student-hq-reader > header,
+.student-hq-activity > header {
+  align-items: center;
+  justify-content: space-between;
+}
+.student-hq-header {
+  margin-bottom: 18px;
+}
+.student-hq-header h1 {
+  margin: 4px 0 0;
+}
+.student-hq-accessibility {
+  display: flex;
+  gap: 8px;
+}
+.student-hq-shell button {
+  min-height: 42px;
+  padding: 9px 13px;
+  border: 1px solid #d3dbea;
+  border-radius: 10px;
+  background: #fff;
+  color: #34405d;
+  font-weight: 800;
+  cursor: pointer;
+}
+.student-hq-progress {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 18px;
+}
+.student-hq-progress article {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #dce3ef;
+  border-radius: 14px;
+  background: #fff;
+}
+.student-hq-progress progress {
+  width: 100%;
+}
+.student-hq-content {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  align-items: stretch;
+}
+.student-hq-reader,
+.student-hq-activity {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #dce3ef;
+  border-radius: 18px;
+  background: #fff;
+}
+.student-hq-page {
+  min-height: 520px;
+  display: grid;
+  place-content: center;
+  gap: 14px;
+  padding: 32px;
+  text-align: center;
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(64, 99, 210, 0.1), rgba(18, 161, 120, 0.09)),
+    #f8faff;
+}
+.student-hq-options {
+  display: grid;
+  gap: 10px;
+}
+.student-hq-options label {
+  display: flex;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid #dce3ef;
+  border-radius: 10px;
+}
+.student-hq-activity textarea {
+  min-height: 160px;
+  padding: 12px;
+  border: 1px solid #d3dbea;
+  border-radius: 12px;
+  resize: vertical;
+}
+.student-hq-source-link {
+  justify-self: start;
+}
+.student-hq-feedback {
+  padding: 14px;
+  color: #315e55;
+  border: 1px solid #b8e5d8;
+  border-radius: 12px;
+  background: #eafaf5;
+}
+.student-hq-footer {
+  margin-top: 18px;
+}
+.student-hq-loading {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+}
+.is-high-contrast .student-hq-reader,
+.is-high-contrast .student-hq-activity,
+.is-high-contrast .student-hq-progress article {
+  color: #fff;
+  border-color: #fff;
+  background: #111;
+}
+.is-high-contrast .student-hq-page {
+  color: #fff;
+  background: #111;
+  border: 2px solid #fff;
+}
+@media (max-width: 900px) {
+  .student-hq-content,
+  .student-hq-progress {
+    grid-template-columns: 1fr;
+  }
+  .student-hq-header,
+  .student-hq-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

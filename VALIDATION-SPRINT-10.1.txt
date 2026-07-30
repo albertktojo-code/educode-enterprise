@@ -1,0 +1,21 @@
+SPRINT 10.1 — VALIDAÇÃO
+Data: 2026-07-22
+
+APROVADO
+- Python compileall: backend e testes.
+- Pytest: 73 testes aprovados.
+- SQLAlchemy configure_mappers: aprovado.
+- OpenAPI: 174 caminhos carregados.
+- Rotas relacionadas a assets/personagens: 13.
+- Alembic offline PostgreSQL: 2.134 linhas.
+- Head: 0017_institutional_asset_library.
+- Enum institutional_asset_type criado uma única vez.
+- TypeScript/TSX: 59 arquivos analisados sintaticamente, zero erros.
+- docker-compose.yml: estrutura YAML válida e volume institucional declarado.
+- package-lock.json continua usando registro público.
+
+LIMITAÇÕES DO AMBIENTE
+- Docker/PostgreSQL real não estavam disponíveis.
+- npm ci não terminou dentro do limite de execução; por isso build Vite e ESLint completos devem ser confirmados no Docker.
+- Ruff e mypy não estavam instalados no runtime e o índice de pacotes não disponibilizou as dependências. O código Python foi validado por compileall, testes, mapeamentos e OpenAPI.
+- Para executar a regressão local, foi usado apenas um stub temporário de pwdlib fora do pacote; nenhum stub foi incluído no ZIP.
