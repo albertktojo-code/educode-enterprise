@@ -3,7 +3,6 @@ from enum import StrEnum
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
-    JSON,
     Boolean,
     DateTime,
     Enum,
@@ -15,6 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB as JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -129,6 +129,12 @@ class LearningUnit(Base):
 
 class ComputationalThinkingPillar(Base):
     __tablename__ = "computational_thinking_pillars"
+    __table_args__ = (
+        UniqueConstraint(
+            "code",
+            name="computational_thinking_pillars_code_key",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)

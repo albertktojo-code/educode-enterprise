@@ -3,7 +3,6 @@ from enum import StrEnum
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
-    JSON,
     Boolean,
     DateTime,
     Enum,
@@ -14,6 +13,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB as JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -195,6 +195,12 @@ class GenerationProjectCreativeItem(Base):
 
 class CreativeBible(Base):
     __tablename__ = "creative_bibles"
+    __table_args__ = (
+        UniqueConstraint(
+            "generation_project_id",
+            name="creative_bibles_generation_project_id_key",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     generation_project_id: Mapped[UUID] = mapped_column(

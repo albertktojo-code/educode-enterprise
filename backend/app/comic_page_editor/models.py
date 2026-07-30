@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -56,6 +57,29 @@ class HQEditorPage(TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("organization_id", "comic_project_id", "page_number", name="uq_hq_editor_page_number"),
         Index("ix_hq_editor_pages_project", "organization_id", "comic_project_id", "page_number"),
+        Index(
+            "ix_hq_editor_page_type",
+            "organization_id",
+            "comic_project_id",
+            "page_type",
+            "page_number",
+        ),
+        Index(
+            "uq_hq_editor_single_back_cover",
+            "organization_id",
+            "comic_project_id",
+            "page_type",
+            unique=True,
+            postgresql_where=text("page_type = 'BACK_COVER'"),
+        ),
+        Index(
+            "uq_hq_editor_single_cover",
+            "organization_id",
+            "comic_project_id",
+            "page_type",
+            unique=True,
+            postgresql_where=text("page_type = 'COVER'"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

@@ -5,19 +5,19 @@ from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
-    JSON,
     Boolean,
     Computed,
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -119,6 +119,17 @@ class DocumentChunk(Base):
         UniqueConstraint(
             "index_job_id", "indexing_revision", "chunk_index", name="uq_chunk_revision_index"
         ),
+        Index(
+            "ix_document_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+        Index(
+            "ix_document_chunks_search_vector",
+            "search_vector",
+            postgresql_using="gin",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -159,7 +170,7 @@ class DocumentChunk(Base):
         nullable=True,
     )
     metadata_json: Mapped[dict[str, object]] = mapped_column(
-        "metadata", JSON, default=dict, nullable=False
+        "metadata", JSONB, default=dict, nullable=False
     )
     security_flag: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     security_notes: Mapped[str | None] = mapped_column(Text(), nullable=True)

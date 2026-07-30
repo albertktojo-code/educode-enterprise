@@ -18,6 +18,9 @@ class OrganizationRole(StrEnum):
 
 class Organization(Base):
     __tablename__ = "organizations"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_organizations_slug"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
@@ -43,6 +46,9 @@ class Organization(Base):
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("email", name="uq_users_email"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
@@ -110,6 +116,18 @@ class AuthSession(Base):
     __table_args__ = (
         Index("ix_auth_sessions_user_active", "user_id", "revoked_at", "expires_at"),
         Index("ix_auth_sessions_family", "family_id"),
+        UniqueConstraint(
+            "legacy_refresh_token_hash",
+            name="auth_sessions_legacy_refresh_token_hash_key",
+        ),
+        UniqueConstraint(
+            "previous_refresh_token_hash",
+            name="auth_sessions_previous_refresh_token_hash_key",
+        ),
+        UniqueConstraint(
+            "refresh_token_hash",
+            name="auth_sessions_refresh_token_hash_key",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -153,6 +171,10 @@ class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
     __table_args__ = (
         Index("ix_password_reset_user_active", "user_id", "used_at", "expires_at"),
+        UniqueConstraint(
+            "token_hash",
+            name="password_reset_tokens_token_hash_key",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

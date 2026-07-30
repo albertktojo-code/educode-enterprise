@@ -3,17 +3,18 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
-    JSON,
     Boolean,
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB as JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -68,6 +69,11 @@ class AdaptiveSkillState(Base):
             "organization_id", "student_id", "dimension_type", "dimension_code",
             name="uq_adaptive_skill_state_dimension",
         ),
+        Index(
+            "ix_adaptive_skill_dimension",
+            "dimension_type",
+            "dimension_code",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -99,6 +105,11 @@ class SkillPrerequisite(Base):
         UniqueConstraint(
             "organization_id", "dimension_type", "dimension_code", "prerequisite_type", "prerequisite_code",
             name="uq_skill_prerequisite_relation",
+        ),
+        Index(
+            "ix_skill_prereq_dimension",
+            "dimension_type",
+            "dimension_code",
         ),
     )
 

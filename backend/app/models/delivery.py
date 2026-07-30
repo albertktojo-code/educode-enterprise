@@ -10,6 +10,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -93,6 +94,13 @@ class NotificationStatus(StrEnum):
 
 class MaterialAssignment(Base):
     __tablename__ = "material_assignments"
+    __table_args__ = (
+        Index(
+            "ix_material_assignments_status_due",
+            "status",
+            "due_at",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     organization_id: Mapped[UUID] = mapped_column(
@@ -264,6 +272,11 @@ class StudentAttempt(Base):
         UniqueConstraint(
             "assignment_id", "student_id", "attempt_number", name="uq_student_assignment_attempt"
         ),
+        Index(
+            "ix_student_attempts_student_status",
+            "student_id",
+            "status",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -377,6 +390,13 @@ class LearningEvent(Base):
 
 class UserNotification(Base):
     __tablename__ = "user_notifications"
+    __table_args__ = (
+        Index(
+            "ix_user_notifications_user_status",
+            "user_id",
+            "status",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     organization_id: Mapped[UUID] = mapped_column(

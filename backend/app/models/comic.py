@@ -16,6 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -182,16 +183,16 @@ class GeneratedComic(Base):
         Enum(ComicStatus, name="comic_status"), default=ComicStatus.DRAFT, nullable=False
     )
     current_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    narrative_profile: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    layout_preferences: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    story_state: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    narrative_profile: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    layout_preferences: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    story_state: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     continuity_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     pedagogical_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text(), nullable=True)
     art_direction: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     canvas_config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     publication_status: Mapped[str] = mapped_column(String(40), default="draft", nullable=False)
-    review_state: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    review_state: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     autosave_revision: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_saved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     edit_revision: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -281,7 +282,7 @@ class ComicPage(Base):
     panel_count: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
     width: Mapped[float] = mapped_column(Float, default=210.0, nullable=False)
     height: Mapped[float] = mapped_column(Float, default=297.0, nullable=False)
-    margins: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    margins: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text(), nullable=True)
     page_role: Mapped[str] = mapped_column(String(40), default="story", nullable=False)
     background_config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
@@ -345,21 +346,21 @@ class ComicPanel(Base):
     clipping_mode: Mapped[str] = mapped_column(String(40), default="cover", nullable=False)
     narrative_goal: Mapped[str] = mapped_column(Text(), default="", nullable=False)
     pedagogical_goal: Mapped[str] = mapped_column(Text(), default="", nullable=False)
-    ct_pillar_codes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    ct_pillar_codes: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     scene_description: Mapped[str] = mapped_column(Text(), default="", nullable=False)
     previous_panel_summary: Mapped[str] = mapped_column(Text(), default="", nullable=False)
     next_panel_hook: Mapped[str] = mapped_column(Text(), default="", nullable=False)
-    initial_state: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    final_state: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    initial_state: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    final_state: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     emotion: Mapped[str] = mapped_column(String(80), default="curiosity", nullable=False)
     plot_function: Mapped[str] = mapped_column(String(100), default="development", nullable=False)
-    continuity_notes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    continuity_notes: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     status: Mapped[PanelStatus] = mapped_column(
         Enum(PanelStatus, name="comic_panel_status"), default=PanelStatus.DRAFT, nullable=False
     )
-    locked_elements: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
-    visual_prompt: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    frozen_assets: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    locked_elements: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    visual_prompt: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    frozen_assets: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     pacing: Mapped[str] = mapped_column(String(40), default="moderate", nullable=False)
     image_asset_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     alt_text: Mapped[str | None] = mapped_column(Text(), nullable=True)
@@ -423,7 +424,7 @@ class ComicBalloon(Base):
     width: Mapped[float] = mapped_column(Float, default=40.0, nullable=False)
     height: Mapped[float] = mapped_column(Float, default=20.0, nullable=False)
     is_locked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    layer_config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    layer_config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -452,7 +453,7 @@ class ComicVersion(Base):
     target_panel_id: Mapped[UUID | None] = mapped_column(nullable=True)
     target_balloon_id: Mapped[UUID | None] = mapped_column(nullable=True)
     change_description: Mapped[str] = mapped_column(Text(), nullable=False)
-    snapshot_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    snapshot_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     created_by_user_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), index=True
     )
@@ -485,8 +486,8 @@ class ComicGenerationRun(Base):
     )
     provider: Mapped[str] = mapped_column(String(80), default="mock", nullable=False)
     model: Mapped[str] = mapped_column(String(120), default="narrative-mock-v1", nullable=False)
-    configuration: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    result_summary: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    configuration: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    result_summary: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text(), nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -586,7 +587,7 @@ class ComicRegenerationProposal(Base):
     label: Mapped[str] = mapped_column(String(160), nullable=False)
     tone: Mapped[str] = mapped_column(String(80), nullable=False)
     instruction: Mapped[str | None] = mapped_column(Text(), nullable=True)
-    proposal_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    proposal_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     status: Mapped[ProposalStatus] = mapped_column(
         Enum(ProposalStatus, name="comic_proposal_status"),
         default=ProposalStatus.PROPOSED,
@@ -614,8 +615,8 @@ class ComicEditOperation(Base):
     target_page_id: Mapped[UUID | None] = mapped_column(nullable=True)
     target_panel_id: Mapped[UUID | None] = mapped_column(nullable=True)
     target_balloon_id: Mapped[UUID | None] = mapped_column(nullable=True)
-    before_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-    after_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    before_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    after_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     status: Mapped[EditOperationStatus] = mapped_column(
         Enum(EditOperationStatus, name="comic_edit_operation_status"),
         default=EditOperationStatus.APPLIED,

@@ -94,11 +94,20 @@ class ClassroomSkillMetric(Base):
 
 class AssignmentItemMetric(Base):
     __tablename__ = "assignment_item_metrics"
+    __table_args__ = (
+        UniqueConstraint(
+            "assignment_question_id",
+            name="assignment_item_metrics_assignment_question_id_key",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
     assignment_id: Mapped[UUID] = mapped_column(ForeignKey("material_assignments.id", ondelete="CASCADE"), index=True)
-    assignment_question_id: Mapped[UUID] = mapped_column(ForeignKey("assignment_questions.id", ondelete="CASCADE"), unique=True, index=True)
+    assignment_question_id: Mapped[UUID] = mapped_column(
+        ForeignKey("assignment_questions.id", ondelete="CASCADE"),
+        index=True,
+    )
     response_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     correct_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     omission_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

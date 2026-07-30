@@ -4,7 +4,19 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB as JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -36,6 +48,13 @@ class SLODefinition(Base):
 
 class OperationalMetricSnapshot(Base):
     __tablename__ = "operational_metric_snapshots"
+    __table_args__ = (
+        Index(
+            "ix_metric_snapshots_name_time",
+            "metric_name",
+            "measured_at",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     organization_id: Mapped[UUID | None] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
@@ -73,6 +92,13 @@ class OperationalAlertRule(Base):
 
 class OperationalAlertEvent(Base):
     __tablename__ = "operational_alert_events"
+    __table_args__ = (
+        Index(
+            "ix_alert_events_org_status",
+            "organization_id",
+            "status",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)

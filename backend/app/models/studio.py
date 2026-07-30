@@ -3,7 +3,18 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -110,6 +121,12 @@ class TeacherStudioDraft(Base):
 
 class ArtDirectionPreset(Base):
     __tablename__ = "art_direction_presets"
+    __table_args__ = (
+        UniqueConstraint(
+            "code",
+            name="art_direction_presets_code_key",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     organization_id: Mapped[UUID | None] = mapped_column(

@@ -260,3 +260,34 @@ A classificação detalhada foi feita com `MigrationContext` e
 `produce_migrations` dentro do container backend. A conexão terminou em
 `ROLLBACK`.
 
+## Atualização — alinhamento do metadata
+
+Na branch `chore/alembic-metadata-alignment`, o metadata foi alinhado sem criar
+ou aplicar migration:
+
+- as 85 colunas foram declaradas como `JSONB`, mantendo quatro colunas de HQ
+  que são `JSON` de fato;
+- as 10 constraints de unicidade instaladas foram registradas explicitamente;
+- os 13 índices compostos, parciais, GIN e HNSW existentes foram registrados;
+- pares de índice com mesma tabela, colunas, ordem, unicidade e opções de
+  dialeto, mas nomes diferentes, passaram a ser normalizados durante a
+  autogeração.
+
+A normalização de nomes é conservadora: somente remove do script o par
+`drop/create` semanticamente idêntico. Adições isoladas e alterações de coluna,
+ordem, unicidade ou opções PostgreSQL continuam visíveis.
+
+Resultado após o alinhamento:
+
+| Operação | Antes | Depois |
+| --- | ---: | ---: |
+| `modify_type` | 85 | 0 |
+| `remove_constraint` | 10 | 0 |
+| `remove_index` | 194 | 0 |
+| `add_index` | 256 | 74 |
+| `modify_nullable` | 1 | 1 |
+| total | 546 | 75 |
+
+O `alembic check` continua falhando intencionalmente enquanto os 74 índices
+candidatos e a nullability de `material_assignments.package_id` não forem
+decididos. Nenhuma dessas 75 operações foi ocultada ou aplicada.
