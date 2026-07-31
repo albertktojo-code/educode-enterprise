@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { comicPageEditorApi } from "./api";
 import { LearningAnalyticsPanel } from "./LearningAnalyticsPanel";
 
 interface Props { open:boolean; projectId:string; onClose:()=>void; }
 
 export function DeliveryStudio({open,projectId,onClose}:Props){
+  const navigate = useNavigate();
   const [title,setTitle]=useState("HQ e atividades");
   const [targetId,setTargetId]=useState("");
   const [targetType,setTargetType]=useState("CLASS");
@@ -13,6 +15,7 @@ export function DeliveryStudio({open,projectId,onClose}:Props){
   const [maxAttempts,setMaxAttempts]=useState(1);
   const [duration,setDuration]=useState(60);
   const [deliveryId,setDeliveryId]=useState("");
+  const [publicationId,setPublicationId]=useState("");
   const [monitoring,setMonitoring]=useState("");
   const [message,setMessage]=useState("");
   const [busy,setBusy]=useState(false);
@@ -29,7 +32,9 @@ export function DeliveryStudio({open,projectId,onClose}:Props){
         access_settings:{keyboard_navigation:true},monitoring_settings:{show_live_progress:true},
         targets:[{target_type:targetType,target_id:targetId,extra_attempts:0}]
       });
-      setDeliveryId(result.id);setMessage("Aplicação criada e agendada.");
+      setDeliveryId(result.id);
+      setPublicationId(result.publication_id);
+      setMessage("Aplicação criada e agendada.");
     }catch(error){setMessage(error instanceof Error?error.message:"Falha ao criar aplicação.");}
     finally{setBusy(false);}
   }
@@ -72,13 +77,24 @@ export function DeliveryStudio({open,projectId,onClose}:Props){
             <button disabled={busy||!targetId||!startsAt||!endsAt} onClick={()=>void create()}>Criar aplicação</button>
             <button disabled={busy||!deliveryId} onClick={()=>void publish()}>Publicar</button>
             <button disabled={!deliveryId} onClick={()=>void monitor()}>Atualizar monitoramento</button>
-            <button disabled={!deliveryId} onClick={()=>setAnalyticsOpen(true)}>Analytics pós-HQ</button>
             <button
               disabled={!deliveryId}
               onClick={() => {
-                if (deliveryId) {
+                onClose();
+                navigate(
+                  `/teacher/comic-studio/monitoring/${deliveryId}`,
+                );
+              }}
+            >
+              Abrir painel ao vivo
+            </button>
+            <button disabled={!deliveryId} onClick={()=>setAnalyticsOpen(true)}>Analytics pós-HQ</button>
+            <button
+              disabled={!publicationId}
+              onClick={() => {
+                if (publicationId) {
                   window.open(
-                    `/student/hq-experience/${deliveryId}`,
+                    `/student/hq-experience/${publicationId}`,
                     "_blank",
                     "noopener,noreferrer",
                   );

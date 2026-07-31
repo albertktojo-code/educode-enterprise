@@ -364,6 +364,44 @@ export function HQStudentExperiencePage() {
     void load();
   }, [publicationId]);
 
+  useEffect(() => {
+    if (!publicationId) return;
+    const timer = window.setInterval(() => {
+      void studentExperienceApi
+        .manifest(publicationId)
+        .then((latest) => {
+          setManifest((current) => {
+            if (!current) return latest;
+            const latestActivities = new Map(
+              latest.activities.map((item) => [item.id, item]),
+            );
+            return {
+              ...current,
+              assessment: {
+                ...current.assessment,
+                session: latest.assessment.session,
+                attempts_allowed:
+                  latest.assessment.attempts_allowed,
+                attempts_used: latest.assessment.attempts_used,
+                can_start: latest.assessment.can_start,
+              },
+              teacher_support: latest.teacher_support,
+              activities: current.activities.map((item) => ({
+                ...item,
+                released_answer_key:
+                  latestActivities.get(item.id)
+                    ?.released_answer_key ?? null,
+              })),
+            };
+          });
+        })
+        .catch(() => {
+          // A atualização principal continua disponível para nova tentativa.
+        });
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [publicationId]);
+
   async function load(): Promise<void> {
     setError("");
     setBusy(true);
@@ -600,6 +638,32 @@ export function HQStudentExperiencePage() {
     }
   }
 
+  async function requestTeacherHelp(): Promise<void> {
+    const assessmentSession = manifest?.assessment.session;
+    if (!assessmentSession || !sessionIsActive) return;
+    setBusy(true);
+    setError("");
+    try {
+      await studentExperienceApi.requestHelp(assessmentSession.id, {
+        publication_id: publicationId,
+        page_number: currentPage?.page_number ?? null,
+        activity_id: activity?.id ?? null,
+        activity_index: activityIndex,
+      });
+      setMessage(
+        "Pedido de ajuda enviado. Continue na atividade enquanto aguarda.",
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível enviar o pedido de ajuda.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitAssessment(): Promise<void> {
     const assessmentSession = manifest?.assessment.session;
     if (!assessmentSession || !sessionIsActive) return;
@@ -659,6 +723,54 @@ export function HQStudentExperiencePage() {
             Tentativas: {manifest.assessment.attempts_used} de{" "}
             {manifest.assessment.attempts_allowed}.
           </p>
+          {manifest.teacher_support.updates.length ? (
+            <section
+              className="student-hq-teacher-support"
+              aria-labelledby="student-hq-summary-support-title"
+            >
+              <h2 id="student-hq-summary-support-title">
+                Orientações do professor
+              </h2>
+              <ul>
+                {manifest.teacher_support.updates.slice(-5).map(
+                  (update) => (
+                    <li key={update.id}>
+                      <strong>
+                        {update.type === "RELEASE_HINT"
+                          ? `Dica ${update.hint_level ?? ""}`
+                          : update.type === "RELEASE_ANSWER_KEY"
+                            ? "Gabarito"
+                            : "Mensagem"}
+                      </strong>
+                      <span>
+                        {update.message ??
+                          "O professor liberou este recurso."}
+                      </span>
+                    </li>
+                  ),
+                )}
+              </ul>
+            </section>
+          ) : null}
+          {manifest.teacher_support.answer_key_released ? (
+            <section className="student-hq-released-answers">
+              <h2>Gabaritos liberados</h2>
+              {manifest.activities
+                .filter((item) => item.released_answer_key)
+                .map((item) => (
+                  <details key={item.id}>
+                    <summary>{item.title}</summary>
+                    <pre>
+                      {JSON.stringify(
+                        item.released_answer_key,
+                        null,
+                        2,
+                      )}
+                    </pre>
+                  </details>
+                ))}
+            </section>
+          ) : null}
           {manifest.assessment.can_start ? (
             <button
               type="button"
@@ -735,6 +847,43 @@ export function HQStudentExperiencePage() {
           />
         </article>
       </section>
+
+      {manifest.teacher_support.updates.length ? (
+        <section
+          className="student-hq-teacher-support"
+          aria-labelledby="student-hq-support-title"
+          aria-live="polite"
+        >
+          <h2 id="student-hq-support-title">
+            Orientações do professor
+          </h2>
+          <ul>
+            {manifest.teacher_support.updates
+              .filter(
+                (update) =>
+                  update.type !== "RELEASE_HINT" ||
+                  !update.activity_id ||
+                  update.activity_id === activity?.id,
+              )
+              .slice(-5)
+              .map((update) => (
+                <li key={update.id}>
+                  <strong>
+                    {update.type === "RELEASE_HINT"
+                      ? `Dica ${update.hint_level ?? ""}`
+                      : update.type === "RELEASE_ANSWER_KEY"
+                        ? "Gabarito"
+                        : "Mensagem"}
+                  </strong>
+                  <span>
+                    {update.message ??
+                      "O professor liberou este recurso."}
+                  </span>
+                </li>
+              ))}
+          </ul>
+        </section>
+      ) : null}
 
       <div className="student-hq-content">
         <section className="student-hq-reader">
@@ -833,6 +982,19 @@ export function HQStudentExperiencePage() {
                 }
               />
 
+              {activity.released_answer_key ? (
+                <details className="student-hq-answer-key">
+                  <summary>Gabarito liberado pelo professor</summary>
+                  <pre>
+                    {JSON.stringify(
+                      activity.released_answer_key,
+                      null,
+                      2,
+                    )}
+                  </pre>
+                </details>
+              ) : null}
+
               <div className="student-hq-activity-actions">
                 <button
                   type="button"
@@ -851,6 +1013,13 @@ export function HQStudentExperiencePage() {
                   {savedActivityIds.has(activity.id)
                     ? "Atualizar resposta"
                     : "Salvar resposta"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || !sessionIsActive}
+                  onClick={() => void requestTeacherHelp()}
+                >
+                  Preciso de ajuda
                 </button>
                 <button
                   type="button"

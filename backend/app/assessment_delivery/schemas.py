@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .enums import DeliverySourceType, NavigationMode, PublicationStatus, SessionStatus, TargetType
+from .enums import DeliverySourceType, NavigationMode, TargetType
 
 
 class ORMModel(BaseModel):
@@ -207,9 +207,37 @@ class SessionEventCreate(BaseModel):
 
 
 class TeacherAction(BaseModel):
-    action: Literal["PAUSE", "RESUME", "EXTEND", "CANCEL", "REOPEN"]
+    action: Literal[
+        "PAUSE",
+        "RESUME",
+        "EXTEND",
+        "CANCEL",
+        "REOPEN",
+        "GRANT_ATTEMPT",
+        "SEND_MESSAGE",
+        "RELEASE_HINT",
+        "RELEASE_ANSWER_KEY",
+    ]
     reason: str = Field(min_length=3, max_length=1000)
     extra_minutes: int = Field(default=0, ge=0, le=600)
+    additional_attempts: int = Field(default=0, ge=0, le=5)
+    message: str | None = Field(default=None, min_length=1, max_length=500)
+    activity_id: uuid.UUID | None = None
+    hint_level: int | None = Field(default=None, ge=1, le=20)
+
+    @model_validator(mode="after")
+    def validate_teacher_command(self) -> "TeacherAction":
+        if self.action == "EXTEND" and self.extra_minutes <= 0:
+            raise ValueError("Informe minutos adicionais para ampliar o tempo.")
+        if self.action == "GRANT_ATTEMPT" and self.additional_attempts <= 0:
+            raise ValueError("Informe ao menos uma tentativa adicional.")
+        if self.action in {"SEND_MESSAGE", "RELEASE_HINT"} and not (
+            self.message and self.message.strip()
+        ):
+            raise ValueError("Informe a mensagem que sera enviada ao estudante.")
+        if self.action == "RELEASE_HINT" and self.activity_id is None:
+            raise ValueError("Informe a atividade relacionada a dica.")
+        return self
 
 
 class AvailabilityRead(BaseModel):

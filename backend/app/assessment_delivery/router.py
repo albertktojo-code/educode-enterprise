@@ -17,6 +17,8 @@ from app.assessment_hub.services.scoring import (
     score_response,
 )
 from app.assessment_review.services import ensure_review_assignment
+from app.models.delivery import UserNotification
+from app.services.consolidated_audit import append_domain_audit
 
 from . import audit, models, repositories
 from .access import resolve_student_target, target_window_is_open
@@ -75,6 +77,20 @@ def require_student_or_staff(actor: ActorContext, student_id: uuid.UUID) -> None
     raise HTTPException(status_code=403, detail={"code": "ASSESSMENT_SESSION_ACCESS_DENIED"})
 
 
+def require_session_transition(current: str, target: str) -> None:
+    try:
+        validate_transition(current, target)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "ASSESSMENT_SESSION_TRANSITION_INVALID",
+                "current": current,
+                "target": target,
+            },
+        ) from exc
+
+
 async def get_publication(session: AsyncSession, actor: ActorContext, publication_id: uuid.UUID) -> models.AssessmentPublication:
     entity = await repositories.get_for_organization(
         session, models.AssessmentPublication, actor.organization_id, publication_id
@@ -124,7 +140,11 @@ async def add_event(
 
 @router.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "sprint": "15.2", "module": "assessment-delivery"}
+    return {
+        "status": "ok",
+        "sprint": "16.11.6",
+        "module": "assessment-delivery",
+    }
 
 
 @router.post("/publications", response_model=PublicationRead, status_code=201)
@@ -549,6 +569,14 @@ async def register_event(
 ) -> dict[str, str]:
     entity = await get_session(session, actor, session_id)
     require_student_or_staff(actor, entity.student_id)
+    if not actor.roles.intersection(TEACHER_ROLES) and (
+        payload.source != "CLIENT"
+        or payload.event_type.upper().startswith("TEACHER_")
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "ASSESSMENT_EVENT_SOURCE_NOT_ALLOWED"},
+        )
     if payload.event_type == "FOCUS_LOST":
         entity.focus_loss_count += 1
     if payload.event_type == "RECONNECTED":
@@ -567,6 +595,7 @@ async def register_event(
         occurred_at=payload.occurred_at,
         client_sequence=payload.client_sequence,
     )
+    entity.last_activity_at = datetime.now(UTC)
     await session.commit()
     return {"status": "registered", "integrity_status": entity.integrity_status}
 
@@ -704,13 +733,25 @@ async def teacher_action(
 ) -> models.AssessmentSession:
     require_role(actor, TEACHER_ROLES)
     entity = await get_session(session, actor, session_id)
+    publication = await get_publication(
+        session,
+        actor,
+        entity.publication_id,
+    )
     now = datetime.now(UTC)
+    event_metadata: dict[str, object] = {}
     if payload.action == "PAUSE":
-        validate_transition(entity.status, SessionStatus.PAUSED.value)
+        require_session_transition(
+            entity.status,
+            SessionStatus.PAUSED.value,
+        )
         entity.status = SessionStatus.PAUSED.value
         entity.paused_at = now
     elif payload.action == "RESUME":
-        validate_transition(entity.status, SessionStatus.IN_PROGRESS.value)
+        require_session_transition(
+            entity.status,
+            SessionStatus.IN_PROGRESS.value,
+        )
         if not entity.delivery_snapshot.get("allow_resume", True):
             raise HTTPException(status_code=409, detail={"code": "RESUME_NOT_ALLOWED"})
         entity.status = SessionStatus.IN_PROGRESS.value
@@ -718,19 +759,66 @@ async def teacher_action(
         entity.paused_at = None
         entity.expires_at = (entity.expires_at or now) + timedelta(minutes=payload.extra_minutes)
     elif payload.action == "EXTEND":
-        if payload.extra_minutes <= 0:
-            raise HTTPException(status_code=422, detail={"code": "EXTRA_MINUTES_REQUIRED"})
         entity.expires_at = (entity.expires_at or now) + timedelta(minutes=payload.extra_minutes)
         entity.remaining_seconds += payload.extra_minutes * 60
     elif payload.action == "CANCEL":
-        validate_transition(entity.status, SessionStatus.CANCELLED.value)
+        require_session_transition(
+            entity.status,
+            SessionStatus.CANCELLED.value,
+        )
         entity.status = SessionStatus.CANCELLED.value
     elif payload.action == "REOPEN":
-        validate_transition(entity.status, SessionStatus.IN_PROGRESS.value)
+        require_session_transition(
+            entity.status,
+            SessionStatus.IN_PROGRESS.value,
+        )
         entity.status = SessionStatus.IN_PROGRESS.value
         entity.resume_count += 1
         entity.expires_at = now + timedelta(minutes=max(1, payload.extra_minutes or 30))
-    entity.last_activity_at = now
+    elif payload.action == "GRANT_ATTEMPT":
+        target = await session.scalar(
+            select(models.AssessmentTarget)
+            .where(
+                models.AssessmentTarget.organization_id
+                == actor.organization_id,
+                models.AssessmentTarget.publication_id
+                == entity.publication_id,
+                models.AssessmentTarget.target_type == "STUDENT",
+                models.AssessmentTarget.target_id == entity.student_id,
+            )
+            .with_for_update()
+        )
+        if target is None:
+            target = models.AssessmentTarget(
+                organization_id=actor.organization_id,
+                publication_id=entity.publication_id,
+                target_type="STUDENT",
+                target_id=entity.student_id,
+                available_from=publication.starts_at,
+                available_until=publication.ends_at,
+                extra_attempts=payload.additional_attempts,
+                status="ACTIVE",
+                assigned_by_user_id=actor.user_id,
+            )
+            session.add(target)
+        else:
+            target.extra_attempts += payload.additional_attempts
+            target.status = "ACTIVE"
+        event_metadata["additional_attempts"] = payload.additional_attempts
+    elif payload.action == "SEND_MESSAGE":
+        event_metadata["message"] = payload.message
+    elif payload.action == "RELEASE_HINT":
+        event_metadata.update(
+            {
+                "message": payload.message,
+                "activity_id": str(payload.activity_id),
+                "hint_level": payload.hint_level,
+            }
+        )
+    elif payload.action == "RELEASE_ANSWER_KEY":
+        event_metadata["released"] = True
+
+    event_metadata["extra_minutes"] = payload.extra_minutes
     await add_event(
         session,
         entity,
@@ -738,7 +826,67 @@ async def teacher_action(
         actor_user_id=actor.user_id,
         source="TEACHER",
         description=payload.reason,
-        metadata={"extra_minutes": payload.extra_minutes},
+        metadata=event_metadata,
+    )
+    if payload.action in {
+        "GRANT_ATTEMPT",
+        "SEND_MESSAGE",
+        "RELEASE_HINT",
+        "RELEASE_ANSWER_KEY",
+    }:
+        notification_titles = {
+            "GRANT_ATTEMPT": "Nova tentativa liberada",
+            "SEND_MESSAGE": "Mensagem do professor",
+            "RELEASE_HINT": "Nova dica liberada",
+            "RELEASE_ANSWER_KEY": "Gabarito liberado",
+        }
+        default_messages = {
+            "GRANT_ATTEMPT": (
+                f"{payload.additional_attempts} tentativa(s) adicional(is) "
+                "foram liberadas."
+            ),
+            "RELEASE_ANSWER_KEY": (
+                "O professor liberou o gabarito desta atividade."
+            ),
+        }
+        action_path = (
+            f"/student/hq-experience/{publication.id}"
+            if publication.source_type == "HQ_ACTIVITY_SET"
+            else "/student/assessments"
+        )
+        session.add(
+            UserNotification(
+                organization_id=actor.organization_id,
+                user_id=entity.student_id,
+                notification_type=f"assessment_{payload.action.lower()}",
+                title=notification_titles[payload.action],
+                message=(
+                    payload.message
+                    or default_messages.get(payload.action)
+                    or payload.reason
+                ),
+                action_path=action_path,
+            )
+        )
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="assessment_delivery",
+        action=f"assessment_delivery.teacher_{payload.action.lower()}",
+        entity_type="assessment_session",
+        entity_id=entity.id,
+        details={
+            "publication_id": str(entity.publication_id),
+            "student_id": str(entity.student_id),
+            "extra_minutes": payload.extra_minutes,
+            "additional_attempts": payload.additional_attempts,
+            "activity_id": (
+                str(payload.activity_id)
+                if payload.activity_id
+                else None
+            ),
+            "message_length": len(payload.message or ""),
+        },
     )
     await session.commit()
     return entity

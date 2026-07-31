@@ -1,11 +1,11 @@
 # EduCode Enterprise 2.0 — Sprint 14
 
-> Estado consolidado em evolução: versão `0.16.11.5`,
-> Alembic `0054_delivery_model_sync` (head único). O histórico abaixo descreve
+> Estado consolidado em evolução: versão `0.16.11.6`,
+> Alembic `0055_delivery_source_invariant` (head único). O histórico abaixo descreve
 > a base da Sprint 14; consulte
 > [`docs/STABILIZATION_2026_07_30.md`](docs/STABILIZATION_2026_07_30.md)
 > para a auditoria de base e
-> [`SPRINT_16_11_5.md`](SPRINT_16_11_5.md) para a evolução atual.
+> [`SPRINT_16_11_6.md`](SPRINT_16_11_6.md) para a evolução atual.
 
 Versão consolidada das Sprints 01–13.3. Esta entrega acrescenta **Aprendizagem Adaptativa e Trilhas Personalizadas**, mantendo a infraestrutura distribuída, a IA transversal, o Núcleo de Avaliação Integrada, Learning Analytics e o Laboratório Estatístico.
 

@@ -336,6 +336,94 @@ export interface HQActivityDelivery {
   status:string;
 }
 
+export type HQMonitoringPresence =
+  | "NOT_STARTED"
+  | "STARTED"
+  | "READING"
+  | "ANSWERING"
+  | "PAUSED"
+  | "COMPLETED";
+
+export interface HQMonitoringStudent {
+  student_id: string;
+  student_name: string;
+  classroom_ids: string[];
+  classroom_names: string[];
+  session_id: string | null;
+  session_status: string | null;
+  presence_status: HQMonitoringPresence;
+  current_page_number: number | null;
+  current_panel_number: number | null;
+  current_activity_index: number | null;
+  current_activity_id: string | null;
+  current_activity_title: string | null;
+  current_activity_difficulty: string | null;
+  reading_progress: number;
+  activity_progress: number;
+  combined_progress: number;
+  answered_count: number;
+  total_activity_count: number;
+  last_interaction_at: string | null;
+  idle_seconds: number | null;
+  is_idle: boolean;
+  remaining_seconds: number | null;
+  attempts_used: number;
+  attempts_allowed: number;
+  alerts: Array<{
+    code: string;
+    severity: "INFO" | "WARNING" | "HIGH";
+    message: string;
+  }>;
+  support: {
+    help_pending: boolean;
+    next_hint: {
+      level: number;
+      label?: string;
+      message: string;
+    } | null;
+    answer_key_released: boolean;
+    last_teacher_update_at: string | null;
+  };
+}
+
+export interface HQMonitoringSnapshot {
+  delivery: {
+    id: string;
+    publication_id: string;
+    title: string;
+    status: string;
+    starts_at: string;
+    ends_at: string;
+  };
+  summary: {
+    total_students: number;
+    status_counts: Record<string, number>;
+    started: number;
+    active: number;
+    completed: number;
+    paused: number;
+    attention: number;
+    average_progress: number;
+  };
+  filters: {
+    classrooms: Array<{ id: string; name: string }>;
+  };
+  students: HQMonitoringStudent[];
+  monitoring: {
+    transport: "AUTHENTICATED_POLLING";
+    poll_after_seconds: number;
+    idle_threshold_seconds: number;
+    last_updated_at: string;
+  };
+  privacy: {
+    answers_exposed: false;
+    answer_keys_exposed: false;
+    device_details_exposed: false;
+    ranking_enabled: false;
+    message: string;
+  };
+}
+
 export interface HQLearningAnalyticsSnapshot {
   id: string;
   publication_id: string;

@@ -62,6 +62,7 @@ export interface StudentExperienceActivity {
   max_score: number;
   pedagogical_links: Record<string, unknown>;
   accessibility: Record<string, unknown>;
+  released_answer_key?: Record<string, unknown> | null;
 }
 
 export interface StudentExperiencePage {
@@ -104,6 +105,17 @@ export interface StudentExperienceManifest {
     can_start: boolean;
     autosave_sequence: number;
     session: AssessmentSessionSummary | null;
+  };
+  teacher_support: {
+    answer_key_released: boolean;
+    updates: Array<{
+      id: string;
+      type: "SEND_MESSAGE" | "RELEASE_HINT" | "RELEASE_ANSWER_KEY";
+      message: string | null;
+      activity_id: string | null;
+      hint_level: number | null;
+      occurred_at: string;
+    }>;
   };
   state: {
     id: string | null;
@@ -163,6 +175,22 @@ export const studentExperienceApi = {
   submitSession: (sessionId: string) =>
     api.post<AssessmentSessionSummary>(
       `${DELIVERY_BASE}/sessions/${sessionId}/submit`,
+    ),
+
+  requestHelp: (
+    sessionId: string,
+    metadata: Record<string, unknown>,
+  ) =>
+    api.post<{ status: string; integrity_status: string }>(
+      `${DELIVERY_BASE}/sessions/${sessionId}/events`,
+      {
+        event_type: "STUDENT_HELP_REQUESTED",
+        severity: "WARNING",
+        source: "CLIENT",
+        occurred_at: new Date().toISOString(),
+        description: "Solicitação de apoio durante a experiência HQ.",
+        metadata,
+      },
     ),
 
   saveState: (

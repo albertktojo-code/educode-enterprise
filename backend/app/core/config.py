@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     )
 
     project_name: str = "EduCode Enterprise 2.0"
-    app_version: str = "0.16.11.5"
-    build_identifier: str = "sprint-16.11.5-hq-adaptation-interventions"
+    app_version: str = "0.16.11.6"
+    build_identifier: str = "sprint-16.11.6-hq-teacher-monitoring"
     commit_sha: str = ""
     environment: str = Field(
         default="development",

@@ -89,6 +89,7 @@ async def experience_manifest(
         AssessmentAutosave,
         AssessmentPublication,
         AssessmentSession,
+        AssessmentSessionEvent,
         AssessmentSessionItem,
     )
     from app.assessment_delivery.policies import effective_publication_status
@@ -195,6 +196,61 @@ async def experience_manifest(
         .order_by(AssessmentSession.session_number.desc())
         .limit(1)
     )
+    support_session = active_session
+    if support_session is None:
+        support_session = await session.scalar(
+            select(AssessmentSession)
+            .where(
+                AssessmentSession.organization_id
+                == actor.organization_id,
+                AssessmentSession.publication_id == publication_id,
+                AssessmentSession.student_id == actor.user_id,
+                AssessmentSession.status
+                != SessionStatus.CANCELLED.value,
+            )
+            .order_by(AssessmentSession.session_number.desc())
+            .limit(1)
+        )
+    teacher_events: list[AssessmentSessionEvent] = []
+    if support_session is not None:
+        teacher_events = list(
+            (
+                await session.scalars(
+                    select(AssessmentSessionEvent)
+                    .where(
+                        AssessmentSessionEvent.organization_id
+                        == actor.organization_id,
+                        AssessmentSessionEvent.session_id
+                        == support_session.id,
+                        AssessmentSessionEvent.source == "TEACHER",
+                        AssessmentSessionEvent.event_type.in_(
+                            [
+                                "TEACHER_SEND_MESSAGE",
+                                "TEACHER_RELEASE_HINT",
+                                "TEACHER_RELEASE_ANSWER_KEY",
+                            ]
+                        ),
+                    )
+                    .order_by(AssessmentSessionEvent.occurred_at)
+                )
+            ).all()
+        )
+    answer_key_released = (
+        delivery.release_answer_key == "IMMEDIATE"
+        or any(
+            event.event_type == "TEACHER_RELEASE_ANSWER_KEY"
+            for event in teacher_events
+        )
+        or (
+            delivery.release_answer_key == "AFTER_SUBMISSION"
+            and support_session is not None
+            and support_session.status
+            in {
+                SessionStatus.SUBMITTED.value,
+                SessionStatus.UNDER_REVIEW.value,
+            }
+        )
+    )
     attempt_count = int(
         (
             await session.scalar(
@@ -283,7 +339,11 @@ async def experience_manifest(
 
     activity_payloads: list[dict[str, Any]] = []
     for activity in activities:
-        session_item = items_by_question.get(activity.question_version_id)
+        session_item = (
+            items_by_question.get(activity.question_version_id)
+            if activity.question_version_id is not None
+            else None
+        )
         latest = (
             latest_responses.get(session_item.id)
             if session_item is not None
@@ -319,6 +379,11 @@ async def experience_manifest(
                 "activity_payload": student_activity_payload(
                     activity.activity_type,
                     activity.activity_payload,
+                ),
+                "released_answer_key": (
+                    activity.answer_key
+                    if answer_key_released
+                    else None
                 ),
                 "difficulty": activity.difficulty,
                 "max_score": activity.max_score,
@@ -365,6 +430,24 @@ async def experience_manifest(
                 if active_session
                 else None
             ),
+        },
+        "teacher_support": {
+            "answer_key_released": answer_key_released,
+            "updates": [
+                {
+                    "id": str(event.id),
+                    "type": event.event_type.removeprefix("TEACHER_"),
+                    "message": event.metadata_payload.get("message"),
+                    "activity_id": event.metadata_payload.get(
+                        "activity_id"
+                    ),
+                    "hint_level": event.metadata_payload.get(
+                        "hint_level"
+                    ),
+                    "occurred_at": event.occurred_at,
+                }
+                for event in teacher_events
+            ],
         },
         "state": state_payload,
         "pages": [

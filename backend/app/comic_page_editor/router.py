@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import delete, select
 
 from . import models
@@ -150,7 +150,7 @@ def require_role(actor: ActorContext, allowed: set[str]) -> None:
 
 @router.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "sprint": "16.10.1", "module": "comic-page-editor"}
+    return {"status": "ok", "sprint": "16.11.6", "module": "comic-page-editor"}
 
 
 @router.post("/layouts/validate")
@@ -2263,9 +2263,33 @@ async def publish_hq_activity_delivery(delivery_id:uuid.UUID,session:SessionDep,
     return {"id":str(link.id),"publication_id":str(publication.id),"status":link.status,"published_at":link.published_at}
 
 @router.get("/activity-deliveries/{delivery_id}/monitoring")
-async def monitor_hq_activity_delivery(delivery_id:uuid.UUID,session:SessionDep,actor:ActorDep)->dict[str,Any]:
+async def monitor_hq_activity_delivery(
+    delivery_id: uuid.UUID,
+    session: SessionDep,
+    actor: ActorDep,
+    classroom_id: uuid.UUID | None = Query(default=None),
+    student_id: uuid.UUID | None = Query(default=None),
+    status_filter: str | None = Query(
+        default=None,
+        alias="status",
+        pattern="^(NOT_STARTED|STARTED|READING|ANSWERING|PAUSED|COMPLETED)$",
+    ),
+    idle_threshold_seconds: int | None = Query(
+        default=None,
+        ge=30,
+        le=3600,
+    ),
+) -> dict[str, Any]:
     require_role(actor,EDITOR_ROLES)
-    return await monitoring_summary(session,actor=actor,link_id=delivery_id)
+    return await monitoring_summary(
+        session,
+        actor=actor,
+        link_id=delivery_id,
+        classroom_id=classroom_id,
+        student_id=student_id,
+        status_filter=status_filter,
+        idle_threshold_seconds=idle_threshold_seconds,
+    )
 
 
 @router.get("/student-experience/publications/{publication_id}")

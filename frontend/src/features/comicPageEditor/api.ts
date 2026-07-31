@@ -6,6 +6,7 @@ import type {
   ComicPage,
   EditorialComment,
   HQActivity,
+  HQMonitoringSnapshot,
   HQLearningAnalyticsSnapshot,
   ComicPanel,
   ContinuityIssue,
@@ -718,8 +719,58 @@ export const comicPageEditorApi = {
     api.post<{id:string;publication_id:string;status:string}>(`${BASE}/projects/${projectId}/activity-deliveries`,data),
   publishActivityDelivery: (deliveryId:string) =>
     api.post<Record<string,unknown>>(`${BASE}/activity-deliveries/${deliveryId}/publish`,{}),
-  monitorActivityDelivery: (deliveryId:string) =>
-    api.get<Record<string,unknown>>(`${BASE}/activity-deliveries/${deliveryId}/monitoring`),
+  monitorActivityDelivery: (
+    deliveryId: string,
+    filters: {
+      classroomId?: string;
+      studentId?: string;
+      status?: string;
+      idleThresholdSeconds?: number;
+    } = {},
+  ) => {
+    const query = new URLSearchParams();
+    if (filters.classroomId) {
+      query.set("classroom_id", filters.classroomId);
+    }
+    if (filters.studentId) {
+      query.set("student_id", filters.studentId);
+    }
+    if (filters.status) query.set("status", filters.status);
+    if (filters.idleThresholdSeconds) {
+      query.set(
+        "idle_threshold_seconds",
+        String(filters.idleThresholdSeconds),
+      );
+    }
+    const suffix = query.size ? `?${query.toString()}` : "";
+    return api.get<HQMonitoringSnapshot>(
+      `${BASE}/activity-deliveries/${deliveryId}/monitoring${suffix}`,
+    );
+  },
+
+  teacherDeliveryAction: (
+    sessionId: string,
+    data: {
+      action:
+        | "PAUSE"
+        | "RESUME"
+        | "EXTEND"
+        | "GRANT_ATTEMPT"
+        | "SEND_MESSAGE"
+        | "RELEASE_HINT"
+        | "RELEASE_ANSWER_KEY";
+      reason: string;
+      extra_minutes?: number;
+      additional_attempts?: number;
+      message?: string;
+      activity_id?: string;
+      hint_level?: number;
+    },
+  ) =>
+    api.post<Record<string, unknown>>(
+      `/assessment-delivery/sessions/${sessionId}/actions`,
+      data,
+    ),
 
   getActivityFeedbackProfile: async (
     activityId: string,
