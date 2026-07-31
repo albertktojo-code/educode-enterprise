@@ -85,7 +85,7 @@ em `system_audit_events`. A senha não é armazenada neste documento.
 ## Limites e próxima fase
 
 Esta fase não substitui glifos por um sistema de ícones vetoriais e não
-redesenha individualmente as dezenas de páginas de feature. A Fase G2 deve
-padronizar dashboards, métricas, tabelas, filtros, estados vazios, skeletons e
-gráficos. Depois disso, a Fase G3 pode concentrar a identidade gráfica da
-biblioteca, editor, leitor e monitoramento de HQ.
+redesenha individualmente as dezenas de páginas de feature. A Fase G2 foi
+entregue com métricas, tabelas, filtros, estados vazios e skeletons canônicos.
+A Fase G3 pode agora concentrar a identidade gráfica da biblioteca, editor,
+leitor e monitoramento de HQ.

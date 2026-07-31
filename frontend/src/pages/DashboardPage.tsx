@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { StatusCard } from '../components/StatusCard'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import type { DashboardSummary } from '../types/education'
@@ -34,7 +35,7 @@ export function DashboardPage() {
   const [summary, setSummary] = useState(emptySummary)
   const [health, setHealth] = useState<Health | null>(null)
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   async function load() {
     setLoading(true)
@@ -77,34 +78,14 @@ export function DashboardPage() {
         </button>
       </header>
 
-      {error ? <div className="alert error">{error}</div> : null}
+      {error ? <div className="alert error" role="alert">{error}</div> : null}
 
-      <section className="stats stats-five">
-        <article>
-          <span>Projetos</span>
-          <strong>{summary.projects}</strong>
-          <small>{summary.active_projects} ativos</small>
-        </article>
-        <article>
-          <span>Conteúdos</span>
-          <strong>{summary.contents}</strong>
-          <small>{summary.published_contents} publicados</small>
-        </article>
-        <article>
-          <span>Turmas</span>
-          <strong>{summary.classrooms}</strong>
-          <small>{summary.active_classrooms} ativas</small>
-        </article>
-        <article>
-          <span>Equipe</span>
-          <strong>{summary.users}</strong>
-          <small>{summary.subjects} disciplinas</small>
-        </article>
-        <article>
-          <span>Documentos</span>
-          <strong>{summary.documents}</strong>
-          <small>{summary.ready_documents} prontos para RAG</small>
-        </article>
+      <section className="data-metric-grid data-metric-grid--five" aria-label="Resumo da organização">
+        <StatusCard title="Projetos" value={summary.projects} detail={`${summary.active_projects} ativos`} state="info" loading={loading} />
+        <StatusCard title="Conteúdos" value={summary.contents} detail={`${summary.published_contents} publicados`} state="success" loading={loading} />
+        <StatusCard title="Turmas" value={summary.classrooms} detail={`${summary.active_classrooms} ativas`} state="neutral" loading={loading} />
+        <StatusCard title="Equipe" value={summary.users} detail={`${summary.subjects} disciplinas`} state="neutral" loading={loading} />
+        <StatusCard title="Documentos" value={summary.documents} detail={`${summary.ready_documents} prontos para RAG`} state="warning" loading={loading} />
       </section>
 
       <section className="dashboard-sections">

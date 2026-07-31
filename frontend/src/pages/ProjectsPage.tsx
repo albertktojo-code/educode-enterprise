@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { EmptyState } from '../components/EmptyState'
+import { LoadingState } from '../components/LoadingState'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import type {
@@ -38,8 +40,10 @@ export function ProjectsPage() {
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [loading, setLoading] = useState(true)
 
   async function load() {
+    setLoading(true)
     try {
       const [projectData, subjectData, classroomData] = await Promise.all([
         api<Project[]>('/projects'),
@@ -51,6 +55,8 @@ export function ProjectsPage() {
       setClassrooms(classroomData)
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Falha ao carregar projetos.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -165,10 +171,10 @@ export function ProjectsPage() {
         </div>
       </header>
 
-      {error ? <div className="alert error">{error}</div> : null}
-      {success ? <div className="alert success">{success}</div> : null}
+      {error ? <div className="alert error" role="alert">{error}</div> : null}
+      {success ? <div className="alert success" role="status">{success}</div> : null}
 
-      <div className="toolbar">
+      <div className="toolbar data-toolbar" aria-label="Filtros de projetos">
         <div className="filter-bar">
           {(['all', 'draft', 'active', 'archived'] as const).map((item) => (
             <button
@@ -176,17 +182,22 @@ export function ProjectsPage() {
               key={item}
               onClick={() => setFilter(item)}
               type="button"
+              aria-pressed={filter === item}
             >
               {item === 'all' ? 'Todos' : statusLabels[item]}
             </button>
           ))}
         </div>
-        <input
-          className="search-input"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar projeto..."
-        />
+        <label className="search-field">
+          <span className="sr-only">Buscar projetos</span>
+          <input
+            className="search-input"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar projeto..."
+          />
+        </label>
       </div>
 
       <div className="dashboard-grid">
@@ -227,8 +238,15 @@ export function ProjectsPage() {
         )}
 
         <div className="panel">
-          <div className="panel-title-row"><h2>Projetos cadastrados</h2><span>{visibleProjects.length} projeto(s)</span></div>
-          {visibleProjects.length === 0 ? <p>Nenhum projeto encontrado.</p> : (
+          <div className="panel-title-row"><h2>Projetos cadastrados</h2><span aria-live="polite">{visibleProjects.length} projeto(s)</span></div>
+          {loading ? <LoadingState label="Carregando projetos" /> : visibleProjects.length === 0 ? (
+            <EmptyState
+              icon={projects.length ? 'search' : 'folder'}
+              title={projects.length ? 'Nenhum resultado encontrado' : 'Seu primeiro projeto começa aqui'}
+              description={projects.length ? 'Ajuste a busca ou os filtros para encontrar outro projeto.' : 'Crie um projeto para reunir conteúdos, HQs, avaliações e referências.'}
+              action={projects.length ? <button type="button" className="text-button" onClick={() => { setFilter('all'); setSearch('') }}>Limpar filtros</button> : null}
+            />
+          ) : (
             <div className="project-list">
               {visibleProjects.map((project) => (
                 <article className="project-card" key={project.id}>

@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { EmptyState } from '../components/EmptyState'
+import { LoadingState } from '../components/LoadingState'
+import { StatusCard } from '../components/StatusCard'
 import { api } from '../lib/api'
 import type { AdaptiveDashboard } from '../types/adaptive'
 
@@ -17,16 +20,22 @@ export function AdaptiveDashboardPage() {
   const [studentId, setStudentId] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   async function load() {
-    const [summary, users] = await Promise.all([
-      api<AdaptiveDashboard>('/adaptive/dashboard'),
-      api<Array<{ id: string; full_name: string; email: string; is_active: boolean }>>('/adaptive/students'),
-    ])
-    setDashboard(summary)
-    const studentUsers = users.filter((item) => item.is_active)
-    setStudents(studentUsers)
-    setStudentId((current) => current || studentUsers[0]?.id || '')
+    setLoading(true)
+    try {
+      const [summary, users] = await Promise.all([
+        api<AdaptiveDashboard>('/adaptive/dashboard'),
+        api<Array<{ id: string; full_name: string; email: string; is_active: boolean }>>('/adaptive/students'),
+      ])
+      setDashboard(summary)
+      const studentUsers = users.filter((item) => item.is_active)
+      setStudents(studentUsers)
+      setStudentId((current) => current || studentUsers[0]?.id || '')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { void load().catch((error: Error) => setMessage(error.message)) }, [])
@@ -59,24 +68,25 @@ export function AdaptiveDashboardPage() {
         </div>
         <div className="adaptive-toolbar">
           <select aria-label="Selecionar estudante" value={studentId} onChange={(event: { target: { value: string } }) => setStudentId(event.target.value)}>
+            {!students.length ? <option value="">Nenhum estudante ativo</option> : null}
             {students.map((student) => <option key={student.id} value={student.id}>{student.full_name}</option>)}
           </select>
-          <a className="secondary-button" href="/ia?module=adaptive&action=generate_learning_material">Criar material com IA</a>
+          <Link className="secondary-button" to="/ia?module=adaptive&action=generate_learning_material">Criar material com IA</Link>
           <button className="primary-button" disabled={!studentId || busy} onClick={() => void refreshStudent()} type="button">
             {busy ? 'Calculando...' : 'Atualizar e recomendar'}
           </button>
         </div>
       </header>
 
-      {message ? <div className="inline-message">{message}</div> : null}
+      {message ? <div className="inline-message" role="status">{message}</div> : null}
 
-      <div className="analytics-card-grid">
-        <article className="metric-card"><span>Estudantes com perfil</span><strong>{dashboard?.students_with_profiles ?? 0}</strong><small>mapas de domínio ativos</small></article>
-        <article className="metric-card"><span>Trilhas ativas</span><strong>{dashboard?.active_paths ?? 0}</strong><small>individuais ou por grupo</small></article>
-        <article className="metric-card metric-attention"><span>Aguardando revisão</span><strong>{dashboard?.pending_recommendations ?? 0}</strong><small>decisão obrigatória do professor</small></article>
-        <article className="metric-card"><span>Revisões programadas</span><strong>{dashboard?.scheduled_reviews ?? 0}</strong><small>prática espaçada</small></article>
-        <article className="metric-card"><span>Baixa confiança</span><strong>{dashboard?.low_confidence_states ?? 0}</strong><small>precisam de mais evidências</small></article>
-        <article className="metric-card"><span>Dimensões prioritárias</span><strong>{dashboard?.dimensions_needing_attention ?? 0}</strong><small>domínio abaixo de 65%</small></article>
+      <div className="data-metric-grid data-metric-grid--six" aria-label="Indicadores adaptativos">
+        <StatusCard title="Estudantes com perfil" value={dashboard?.students_with_profiles ?? 0} detail="mapas de domínio ativos" state="info" loading={loading} />
+        <StatusCard title="Trilhas ativas" value={dashboard?.active_paths ?? 0} detail="individuais ou por grupo" state="success" loading={loading} />
+        <StatusCard title="Aguardando revisão" value={dashboard?.pending_recommendations ?? 0} detail="decisão obrigatória do professor" state="warning" loading={loading} />
+        <StatusCard title="Revisões programadas" value={dashboard?.scheduled_reviews ?? 0} detail="prática espaçada" state="neutral" loading={loading} />
+        <StatusCard title="Baixa confiança" value={dashboard?.low_confidence_states ?? 0} detail="precisam de mais evidências" state="warning" loading={loading} />
+        <StatusCard title="Dimensões prioritárias" value={dashboard?.dimensions_needing_attention ?? 0} detail="domínio abaixo de 65%" state="danger" loading={loading} />
       </div>
 
       <div className="adaptive-nav-grid">
@@ -89,13 +99,13 @@ export function AdaptiveDashboardPage() {
         <article className="panel">
           <div className="panel-heading"><div><h2>Recomendações recentes</h2><p>Nenhuma recomendação é enviada automaticamente ao estudante.</p></div><Link to="/adaptativo/recomendacoes">Ver todas</Link></div>
           <div className="adaptive-list">
-            {dashboard?.recent_recommendations.map((item) => (
+            {loading ? <LoadingState label="Carregando recomendações" /> : dashboard?.recent_recommendations.map((item) => (
               <article key={item.id}>
                 <div><span className={`status-pill status-${item.status}`}>{statusLabels[item.status] ?? item.status}</span><h3>{item.title}</h3><p>{item.rationale}</p></div>
                 {item.student_id ? <Link to={`/adaptativo/estudantes/${item.student_id}`}>Ver estudante →</Link> : null}
               </article>
             ))}
-            {!dashboard?.recent_recommendations.length ? <p className="muted">Atualize um estudante para gerar as primeiras recomendações.</p> : null}
+            {!loading && !dashboard?.recent_recommendations.length ? <EmptyState icon="activity" title="Nenhuma recomendação recente" description="Atualize um estudante para gerar sugestões explicáveis que aguardam revisão docente." /> : null}
           </div>
         </article>
 
@@ -103,10 +113,10 @@ export function AdaptiveDashboardPage() {
           <h2>Distribuição de domínio</h2>
           <p>O nível sempre considera quantidade e consistência das evidências.</p>
           <div className="mastery-distribution">
-            {Object.entries(dashboard?.mastery_distribution ?? {}).map(([level, count]) => (
+            {loading ? <LoadingState label="Carregando distribuição de domínio" rows={4} /> : Object.entries(dashboard?.mastery_distribution ?? {}).map(([level, count]) => (
               <div key={level}><div><span>{level.replaceAll('_', ' ')}</span><strong>{count}</strong></div><div className="mastery-track"><span style={{ width: `${masteryTotal ? (count / masteryTotal) * 100 : 0}%` }} /></div></div>
             ))}
-            {!masteryTotal ? <p className="muted">Ainda não existem estados calculados.</p> : null}
+            {!loading && !masteryTotal ? <EmptyState icon="activity" title="Domínio ainda não calculado" description="Novas evidências alimentarão a distribuição após a atualização do estudante." /> : null}
           </div>
           <div className="privacy-note"><strong>Proteção pedagógica:</strong> não há ranking público, rótulos permanentes ou limitação automática de acesso.</div>
         </article>

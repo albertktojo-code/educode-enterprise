@@ -66,7 +66,7 @@ export function LearningAnalyticsPanel({
           <p>Crie uma aplicação para gerar os indicadores.</p>
         ) : null}
 
-        <div className="analytics-actions">
+        <div className="hq-analytics-actions">
           <button
             type="button"
             disabled={busy || !deliveryId}

@@ -138,10 +138,11 @@ Manter a identidade atual, com evolução gradual para uma linguagem de
 
 ## Próxima decisão
 
-A consolidação inicial de autenticação e shell foi entregue na Fase G1. O
-próximo incremento recomendado é a Fase G2, começando pelos dashboards e
-componentes de dados compartilhados, antes de avançar para a experiência
-gráfica completa de HQ.
+A consolidação inicial de autenticação e shell foi entregue na Fase G1. A Fase
+G2 também foi concluída, padronizando dashboards, métricas, filtros, tabelas,
+carregamento e estados vazios. O próximo incremento recomendado é a Fase G3,
+dedicada à experiência gráfica completa de HQ.
 
 Consulte `docs/EDUCODE_VISUAL_G1_2026_07_31.md` para as decisões e evidências
-da entrega.
+da fundação e `docs/EDUCODE_VISUAL_G2_2026_07_31.md` para os componentes de
+dados.

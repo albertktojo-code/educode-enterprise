@@ -2029,13 +2029,13 @@
   align-items: center;
 }
 
-.analytics-actions {
+.hq-analytics-actions {
   display: flex;
   gap: 8px;
   margin: 16px 0;
 }
 
-.analytics-actions button,
+.hq-analytics-actions button,
 .learning-analytics-dialog button {
   min-height: 40px;
   padding: 8px 12px;
