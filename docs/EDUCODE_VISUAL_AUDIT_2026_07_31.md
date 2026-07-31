@@ -14,9 +14,11 @@ acessibilidade, responsividade ou fluxos autenticados.
 - CSS global e estilos por feature;
 - build de produção da versão `0.16.11.6`.
 
-O fluxo autenticado visual completo depende de uma credencial docente válida.
-A credencial de bootstrap documentada não corresponde ao usuário instalado e
-nenhuma senha foi redefinida durante esta auditoria.
+Na auditoria inicial, o fluxo autenticado visual completo dependia de uma
+credencial docente válida. Após autorização explícita, foi criado o principal
+local `visual.teacher@educode.example.com`, vinculado à organização já
+existente e registrado na auditoria canônica. Nenhuma credencial de produção
+foi alterada.
 
 ## Inventário real
 
@@ -136,6 +138,10 @@ Manter a identidade atual, com evolução gradual para uma linguagem de
 
 ## Próxima decisão
 
-A próxima mudança deve consolidar autenticação e shell antes de redesenhar
-dashboards isolados. Isso cria a base compartilhada que as demais features
-podem adotar progressivamente.
+A consolidação inicial de autenticação e shell foi entregue na Fase G1. O
+próximo incremento recomendado é a Fase G2, começando pelos dashboards e
+componentes de dados compartilhados, antes de avançar para a experiência
+gráfica completa de HQ.
+
+Consulte `docs/EDUCODE_VISUAL_G1_2026_07_31.md` para as decisões e evidências
+da entrega.

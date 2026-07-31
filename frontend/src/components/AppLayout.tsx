@@ -233,6 +233,15 @@ function nextCompactMode(mode: SidebarMode): SidebarMode {
   return mode === "expanded" ? "compact" : "expanded";
 }
 
+function matchesRoute(pathname: string, item: NavItem): boolean {
+  if (item.end || item.to === "/") {
+    return pathname === item.to;
+  }
+  return (
+    pathname === item.to || pathname.startsWith(`${item.to}/`)
+  );
+}
+
 export function AppLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -276,6 +285,29 @@ export function AppLayout() {
       ),
     }));
   }, [canManage, isStudent]);
+
+  const navigationGroups = useMemo(
+    () => [...groups, { label: "Conta", items: accountItems }],
+    [groups],
+  );
+  const activeGroupLabel = useMemo(
+    () =>
+      navigationGroups.find((group) =>
+        group.items.some((item) =>
+          matchesRoute(location.pathname, item),
+        ),
+      )?.label ?? null,
+    [location.pathname, navigationGroups],
+  );
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(
+    activeGroupLabel ?? navigationGroups[0]?.label ?? null,
+  );
+
+  useEffect(() => {
+    setExpandedGroup(
+      activeGroupLabel ?? navigationGroups[0]?.label ?? null,
+    );
+  }, [activeGroupLabel, navigationGroups]);
 
   useEffect(() => {
     const onFocus = (event: Event) => {
@@ -503,60 +535,71 @@ export function AppLayout() {
         </div>
 
         <nav aria-label="Navegação principal">
-          {groups.map((group) => (
-            <div className="sidebar-nav-group" key={group.label}>
-              <span className="nav-section-label sidebar-label">
-                {group.label}
-              </span>
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  title={
-                    visualMode !== "expanded"
-                      ? item.label
-                      : undefined
-                  }
-                  aria-label={item.label}
-                  onClick={closeMobile}
-                >
-                  <span className="sidebar-nav-icon" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                  <span className="sidebar-label">
-                    {item.label}
-                  </span>
-                </NavLink>
-              ))}
-            </div>
-          ))}
+          {navigationGroups.map((group) => {
+            const showAllGroups =
+              visualMode !== "expanded" && !mobileOpen;
+            const isGroupExpanded =
+              showAllGroups || expandedGroup === group.label;
+            const groupId = `sidebar-group-${group.label
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")}`;
 
-          <div className="sidebar-nav-group">
-            <span className="nav-section-label sidebar-label">
-              Conta
-            </span>
-            {accountItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                title={
-                  visualMode !== "expanded"
-                    ? item.label
-                    : undefined
-                }
-                aria-label={item.label}
-                onClick={closeMobile}
-              >
-                <span className="sidebar-nav-icon" aria-hidden="true">
-                  {item.icon}
-                </span>
-                <span className="sidebar-label">
-                  {item.label}
-                </span>
-              </NavLink>
-            ))}
-          </div>
+            return (
+              <div className="sidebar-nav-group" key={group.label}>
+                <button
+                  type="button"
+                  className="sidebar-group-toggle sidebar-label"
+                  aria-expanded={isGroupExpanded}
+                  aria-controls={groupId}
+                  onClick={() =>
+                    setExpandedGroup((current) =>
+                      current === group.label ? null : group.label,
+                    )
+                  }
+                >
+                  <span>{group.label}</span>
+                  <span
+                    className="sidebar-group-chevron"
+                    aria-hidden="true"
+                  >
+                    ⌄
+                  </span>
+                </button>
+                <div
+                  id={groupId}
+                  className="sidebar-nav-items"
+                  hidden={!isGroupExpanded}
+                >
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.end}
+                      title={
+                        visualMode !== "expanded"
+                          ? item.label
+                          : undefined
+                      }
+                      aria-label={item.label}
+                      onClick={closeMobile}
+                    >
+                      <span
+                        className="sidebar-nav-icon"
+                        aria-hidden="true"
+                      >
+                        {item.icon}
+                      </span>
+                      <span className="sidebar-label">
+                        {item.label}
+                      </span>
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
 
         <div className="sidebar-user">
@@ -616,7 +659,9 @@ export function AppLayout() {
             Sair do modo foco · Esc
           </button>
         ) : null}
-        <Outlet />
+        <div className="route-stage" key={location.pathname}>
+          <Outlet />
+        </div>
       </main>
     </div>
   );
