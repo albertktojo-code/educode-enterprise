@@ -1,6 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { ComicCover } from '../components/ComicCover'
+import { EmptyState } from '../components/EmptyState'
+import { LoadingState } from '../components/LoadingState'
 import { api } from '../lib/api'
 import type { Comic, ComicSummary, LayoutTemplate, PageOrientation } from '../types/comic'
 import type { GenerationProject } from '../types/pedagogy'
@@ -39,21 +42,29 @@ export function ComicsPage() {
   const [plotTwists, setPlotTwists] = useState(2)
   const [endingType, setEndingType] = useState('surprising_positive')
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | ComicSummary['status']>('all')
 
   async function load() {
-    const [comicData, projectData, contextData, templateData] = await Promise.all([
-      api<ComicSummary[]>('/comics'),
-      api<GenerationProject[]>('/generation-projects'),
-      api<RagContextSummary[]>('/rag-contexts'),
-      api<LayoutTemplate[]>('/comics/layout-templates'),
-    ])
-    setComics(comicData)
-    setProjects(projectData)
-    setContexts(contextData.filter((context) => context.status === 'approved'))
-    setTemplates(templateData)
-    if (!projectId && projectData.length) setProjectId(projectData[0].id)
+    setLoading(true)
+    try {
+      const [comicData, projectData, contextData, templateData] = await Promise.all([
+        api<ComicSummary[]>('/comics'),
+        api<GenerationProject[]>('/generation-projects'),
+        api<RagContextSummary[]>('/rag-contexts'),
+        api<LayoutTemplate[]>('/comics/layout-templates'),
+      ])
+      setComics(comicData)
+      setProjects(projectData)
+      setContexts(contextData.filter((context) => context.status === 'approved'))
+      setTemplates(templateData)
+      if (!projectId && projectData.length) setProjectId(projectData[0].id)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -65,6 +76,27 @@ export function ComicsPage() {
   const projectContexts = useMemo(
     () => contexts.filter((context) => context.generation_project_id === projectId),
     [contexts, projectId],
+  )
+
+  const filteredComics = useMemo(() => {
+    const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR')
+    return comics.filter((comic) => {
+      const matchesStatus = statusFilter === 'all' || comic.status === statusFilter
+      const matchesSearch =
+        !normalizedSearch ||
+        comic.title.toLocaleLowerCase('pt-BR').includes(normalizedSearch) ||
+        comic.synopsis.toLocaleLowerCase('pt-BR').includes(normalizedSearch)
+      return matchesStatus && matchesSearch
+    })
+  }, [comics, search, statusFilter])
+
+  const catalogSummary = useMemo(
+    () => ({
+      total: comics.length,
+      review: comics.filter((comic) => comic.status === 'in_review').length,
+      approved: comics.filter((comic) => comic.status === 'approved').length,
+    }),
+    [comics],
   )
 
   useEffect(() => {
@@ -140,22 +172,28 @@ export function ComicsPage() {
   }
 
   return (
-    <section className="page-stack">
-      <header className="page-header">
+    <section className="page-stack hq-catalog-page">
+      <header className="page-header hq-catalog-hero">
         <div>
-          <span className="eyebrow">SPRINT 09.1</span>
-          <h1>Estúdio de HQs estruturadas</h1>
+          <span className="eyebrow">ESTÚDIO EDUCODE</span>
+          <h1>Minhas HQs</h1>
           <p>
-            Gere histórias criativas com continuidade, páginas configuráveis, quadros de formatos
-            diferentes, balões editáveis e estrutura pronta para o canvas visual.
+            Crie, organize e revise histórias pedagógicas em um espaço visual pensado para o seu fluxo.
           </p>
         </div>
+        <a className="primary-link" href="#nova-hq">Criar nova HQ</a>
       </header>
 
-      {error ? <div className="alert error">{error}</div> : null}
-      {success ? <div className="alert success">{success}</div> : null}
+      <div className="hq-catalog-summary" aria-label="Resumo das minhas HQs">
+        <div><strong>{catalogSummary.total}</strong><span>HQs no estúdio</span></div>
+        <div><strong>{catalogSummary.review}</strong><span>em revisão</span></div>
+        <div><strong>{catalogSummary.approved}</strong><span>aprovadas</span></div>
+      </div>
 
-      <form className="panel" onSubmit={generate}>
+      {error ? <div className="alert error" role="alert">{error}</div> : null}
+      {success ? <div className="alert success" role="status">{success}</div> : null}
+
+      <form className="panel hq-create-panel" id="nova-hq" onSubmit={generate}>
         <div className="panel-title-row">
           <div>
             <span className="eyebrow">NOVA HQ</span>
@@ -246,41 +284,121 @@ export function ComicsPage() {
         </button>
       </form>
 
-      <section className="panel">
+      <section className="panel hq-catalog-panel" aria-labelledby="hq-library-title">
         <div className="panel-title-row">
           <div>
             <span className="eyebrow">BIBLIOTECA</span>
-            <h2>HQs geradas</h2>
+            <h2 id="hq-library-title">HQs geradas</h2>
+            <p>Continue do ponto em que parou ou abra uma etapa específica da produção.</p>
           </div>
+          <span className="hq-result-count" aria-live="polite">
+            {filteredComics.length} {filteredComics.length === 1 ? 'resultado' : 'resultados'}
+          </span>
         </div>
-        <div className="comic-library-grid">
-          {comics.map((comic) => (
-            <article className="comic-library-card" key={comic.id}>
-              <div className="comic-cover-placeholder">
-                <span>{comic.page_count} páginas</span>
-                <strong>{comic.panel_count}</strong>
-                <small>quadros editáveis</small>
-              </div>
-              <div className="comic-card-copy">
-                <span className={`status-chip ${comic.status.replaceAll('_', '-')}`}>{statusLabels[comic.status]}</span>
-                <h3>{comic.title}</h3>
-                <p>{comic.synopsis}</p>
-                <div className="score-grid compact">
-                  <span>Continuidade <strong>{score(comic.continuity_score)}</strong></span>
-                  <span>Pedagogia <strong>{score(comic.pedagogical_score)}</strong></span>
-                  <span>Versão <strong>v{comic.current_version}</strong></span>
-                </div>
-                <div className="comic-card-actions">
-                  <Link className="secondary-button" to={`/hqs/${comic.id}/preview`}>Pré-visualizar</Link>
-                  <Link className="secondary-button" to={`/storyboards/${comic.id}`}>Storyboard</Link>
-                  <Link className="secondary-button" to={`/hqs/${comic.id}`}>Revisão granular</Link>
-                  <Link className="primary-link" to={`/canvas/${comic.id}`}>Abrir canvas visual</Link>
-                </div>
-              </div>
-            </article>
-          ))}
-          {!comics.length ? <p>Nenhuma HQ foi gerada até agora.</p> : null}
+
+        <div className="hq-catalog-toolbar" role="search">
+          <label className="hq-search-field">
+            <span className="sr-only">Buscar HQ</span>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="m20 20-4.4-4.4m2.15-5.35a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
+            </svg>
+            <input
+              type="search"
+              placeholder="Buscar por título ou assunto"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+          <label>
+            <span className="sr-only">Filtrar HQs por status</span>
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as 'all' | ComicSummary['status'])
+              }
+            >
+              <option value="all">Todos os status</option>
+              <option value="draft">Rascunhos</option>
+              <option value="generating">Em geração</option>
+              <option value="in_review">Em revisão</option>
+              <option value="approved">Aprovadas</option>
+              <option value="archived">Arquivadas</option>
+            </select>
+          </label>
         </div>
+
+        {loading ? <LoadingState label="Carregando suas HQs" rows={3} /> : null}
+
+        {!loading && filteredComics.length ? (
+          <div className="comic-library-grid">
+            {filteredComics.map((comic) => (
+              <article className="comic-library-card" key={comic.id}>
+                <Link
+                  className="comic-card-cover-link"
+                  to={`/hqs/${comic.id}/preview`}
+                  aria-label={`Pré-visualizar ${comic.title}`}
+                >
+                  <ComicCover
+                    title={comic.title}
+                    eyebrow={`${comic.page_count} páginas`}
+                    footer={`${comic.panel_count} quadros · v${comic.current_version}`}
+                    seed={comic.id}
+                  />
+                </Link>
+                <div className="comic-card-copy">
+                  <div className="comic-card-heading">
+                    <span className={`status-chip ${comic.status.replaceAll('_', '-')}`}>
+                      {statusLabels[comic.status]}
+                    </span>
+                    <span>
+                      Atualizada em {new Intl.DateTimeFormat('pt-BR').format(new Date(comic.updated_at))}
+                    </span>
+                  </div>
+                  <h3>{comic.title}</h3>
+                  <p>{comic.synopsis || 'Uma HQ pedagógica criada no EduCode.'}</p>
+                  <div className="score-grid compact" aria-label={`Indicadores de ${comic.title}`}>
+                    <span>Continuidade <strong>{score(comic.continuity_score)}</strong></span>
+                    <span>Pedagogia <strong>{score(comic.pedagogical_score)}</strong></span>
+                    <span>Versão <strong>v{comic.current_version}</strong></span>
+                  </div>
+                  <div className="comic-card-actions">
+                    <Link className="primary-link" to={`/canvas/${comic.id}`}>Abrir no canvas</Link>
+                    <Link className="secondary-button" to={`/hqs/${comic.id}`}>Revisar</Link>
+                    <Link className="text-link" to={`/storyboards/${comic.id}`}>Storyboard</Link>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : null}
+
+        {!loading && !filteredComics.length ? (
+          <EmptyState
+            icon={comics.length ? 'search' : 'folder'}
+            title={comics.length ? 'Nenhuma HQ corresponde aos filtros' : 'Sua primeira história começa aqui'}
+            description={
+              comics.length
+                ? 'Ajuste a busca ou o status para reencontrar uma HQ do seu estúdio.'
+                : 'Defina o planejamento, o contexto pedagógico e a narrativa para criar sua primeira HQ.'
+            }
+            action={
+              comics.length ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    setSearch('')
+                    setStatusFilter('all')
+                  }}
+                >
+                  Limpar filtros
+                </button>
+              ) : (
+                <a className="primary-link" href="#nova-hq">Começar uma HQ</a>
+              )
+            }
+          />
+        ) : null}
       </section>
     </section>
   )
