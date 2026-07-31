@@ -15,6 +15,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.assessment import AssessmentDeliveryLink
 from app.models.auth import Membership, User
 from app.models.comic import ComicPage, ComicPanel, GeneratedComic
 from app.models.delivery import (
@@ -1401,9 +1402,25 @@ async def duplicate_assignment(
     title: str | None,
     copy_recipients: bool,
 ) -> MaterialAssignment:
+    source_delivery_link: AssessmentDeliveryLink | None = None
+    if assignment.assessment_version_id is not None:
+        source_delivery_link = await session.scalar(
+            select(AssessmentDeliveryLink).where(
+                AssessmentDeliveryLink.material_assignment_id == assignment.id,
+                AssessmentDeliveryLink.organization_id == assignment.organization_id,
+                AssessmentDeliveryLink.assessment_version_id
+                == assignment.assessment_version_id,
+            )
+        )
+        if source_delivery_link is None:
+            raise DeliveryError(
+                "A publicação de avaliação não possui vínculo canônico com o Assessment Hub"
+            )
+
     clone = MaterialAssignment(
         organization_id=assignment.organization_id,
         package_id=assignment.package_id,
+        assessment_version_id=assignment.assessment_version_id,
         created_by_user_id=user_id,
         created_by_name_snapshot=user_name,
         title=title or f"{assignment.title} — cópia",
@@ -1433,6 +1450,8 @@ async def duplicate_assignment(
     for question in assignment.questions:
         clone.questions.append(
             AssignmentQuestion(
+                package_material_id=question.package_material_id,
+                question_bank_item_id=question.question_bank_item_id,
                 position=question.position,
                 question_type=question.question_type,
                 prompt=question.prompt,
@@ -1446,6 +1465,12 @@ async def duplicate_assignment(
                 source_references=json.loads(json.dumps(question.source_references)),
                 manual_grading=question.manual_grading,
                 shuffle_options=question.shuffle_options,
+                source_type=question.source_type,
+                source_metadata=json.loads(json.dumps(question.source_metadata)),
+                item_version=question.item_version,
+                item_snapshot_checksum=question.item_snapshot_checksum,
+                is_annulled=question.is_annulled,
+                annulment_reason=question.annulment_reason,
             )
         )
     if copy_recipients:
@@ -1464,6 +1489,15 @@ async def duplicate_assignment(
                     accommodations=json.loads(json.dumps(recipient.accommodations)),
                 )
             )
+    if source_delivery_link is not None:
+        session.add(
+            AssessmentDeliveryLink(
+                organization_id=assignment.organization_id,
+                assessment_id=source_delivery_link.assessment_id,
+                assessment_version_id=source_delivery_link.assessment_version_id,
+                material_assignment_id=clone.id,
+                created_by_user_id=user_id,
+            )
+        )
     await session.flush()
     return await get_assignment(session, assignment.organization_id, clone.id) or clone
-

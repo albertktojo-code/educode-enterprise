@@ -199,6 +199,36 @@ Esse é o único drift que provavelmente exige alteração real de coluna. Ele n
 deve ser incluído em uma migration ampla com centenas de mudanças não
 relacionadas.
 
+### Resolução autorizada
+
+A auditoria posterior confirmou dois fluxos canônicos e mutuamente exclusivos:
+
+- publicação de pacote pedagógico com `package_id`;
+- publicação do Assessment Hub com `assessment_version_id`.
+
+A migration `0055_delivery_source_invariant`, derivada diretamente de
+`0054_delivery_model_sync`, resolveu o drift sem criar tabelas ou índices:
+
+- executa preflight de dados incompatíveis;
+- torna `package_id` anulável;
+- exige exatamente uma origem por `CHECK constraint`;
+- usa `ON DELETE RESTRICT` para preservar versões de avaliação publicadas;
+- bloqueia downgrade para 0054 quando já existem publicações
+  `assessment-only`.
+
+O serviço de duplicação também passou a preservar `AssessmentDeliveryLink`,
+`question_bank_item_id`, versão, checksum e metadados de origem.
+
+O ciclo real `upgrade -> downgrade -> upgrade` foi executado com sucesso. Um
+teste transacional confirmou que o banco aceita `assessment-only` e rejeita
+zero ou duas origens. Outro teste confirmou o bloqueio do downgrade com dados
+que a 0054 não consegue representar.
+
+Depois da 0055, o `alembic check` não apresenta alterações de coluna, tipo,
+constraint ou remoção. Permanecem somente os 74 candidatos `add_index` já
+classificados nesta auditoria; eles não foram materializados sem evidência de
+workload de produção.
+
 ## Riscos
 
 ### Críticos

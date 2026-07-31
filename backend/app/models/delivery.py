@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     DateTime,
     Enum,
     Float,
@@ -95,6 +96,11 @@ class NotificationStatus(StrEnum):
 class MaterialAssignment(Base):
     __tablename__ = "material_assignments"
     __table_args__ = (
+        CheckConstraint(
+            "(package_id IS NOT NULL AND assessment_version_id IS NULL) OR "
+            "(package_id IS NULL AND assessment_version_id IS NOT NULL)",
+            name="ck_material_assignments_exactly_one_source",
+        ),
         Index(
             "ix_material_assignments_status_due",
             "status",
@@ -110,7 +116,7 @@ class MaterialAssignment(Base):
         ForeignKey("pedagogical_packages.id", ondelete="RESTRICT"), index=True, nullable=True
     )
     assessment_version_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("assessment_versions.id", ondelete="SET NULL"), index=True, nullable=True
+        ForeignKey("assessment_versions.id", ondelete="RESTRICT"), index=True, nullable=True
     )
     created_by_user_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), index=True

@@ -1,4 +1,4 @@
-from sqlalchemy import JSON
+from sqlalchemy import JSON, CheckConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.db.base import Base
@@ -90,6 +90,27 @@ def test_specialized_and_composite_indexes_are_registered() -> None:
         str(index.dialect_options["postgresql"]["where"])
         for index in partial_indexes.values()
     } == {"page_type = 'BACK_COVER'", "page_type = 'COVER'"}
+
+
+def test_material_assignment_has_exactly_one_restrictive_source() -> None:
+    assignments = Base.metadata.tables["material_assignments"]
+    source_constraints = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in assignments.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert source_constraints["ck_material_assignments_exactly_one_source"] == (
+        "(package_id IS NOT NULL AND assessment_version_id IS NULL) OR "
+        "(package_id IS NULL AND assessment_version_id IS NOT NULL)"
+    )
+    assert assignments.c.package_id.nullable is True
+
+    assessment_fk = next(
+        foreign_key
+        for foreign_key in assignments.foreign_key_constraints
+        if tuple(foreign_key.column_keys) == ("assessment_version_id",)
+    )
+    assert assessment_fk.ondelete == "RESTRICT"
 
 
 def test_postgresql_jsonb_contract_preserves_intentional_json_columns() -> None:

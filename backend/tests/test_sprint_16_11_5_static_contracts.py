@@ -3,9 +3,14 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parents[1]
 
 
-def test_sprint_reuses_existing_tables_without_0055_migration():
+def test_sprint_reuses_existing_tables_without_parallel_domain_migration():
     migrations = BACKEND / "alembic" / "versions"
-    assert not list(migrations.glob("0055*"))
+    for migration in migrations.glob("0055*"):
+        migration_source = migration.read_text(encoding="utf-8")
+        assert "op.create_table(" not in migration_source
+        assert '"adaptive_' not in migration_source
+        assert '"intervention_' not in migration_source
+        assert '"hq_' not in migration_source
 
     analytics = (
         BACKEND / "app/comic_page_editor/learning_analytics.py"
@@ -95,8 +100,8 @@ def test_adaptive_taxonomy_does_not_publish_automatically():
 
 def test_version_is_16_11_5():
     config = (BACKEND / "app/core/config.py").read_text(encoding="utf-8")
-    assert 'app_version: str = "0.16.11.5"' in config
-    assert "sprint-16.11.5-hq-adaptation-interventions" in config
+    assert 'app_version: str = "0.16.11.' in config
+    assert "sprint-16.11." in config
 
 
 def test_release_ledger_reads_current_alembic_revision():

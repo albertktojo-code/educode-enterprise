@@ -112,7 +112,7 @@ posteriores ao backup.
 - downgrade `0054 -> 0053`: sucesso;
 - upgrade `0053 -> 0054`: sucesso;
 - backend, PostgreSQL e Redis: healthy;
-- `/api/v1/health/live`: versão `0.16.11.4`;
+- `/api/v1/health/live`: versão `0.16.11.5`;
 - `/api/v1/health/ready`: banco, Redis e storage healthy;
 - frontend: HTTP 200.
 
@@ -141,5 +141,45 @@ lock/rollback.
 - o bundle frontend deve ser particionado por rotas/features;
 - o drift histórico de tipos, índices e constraints continua exigindo
   saneamento incremental;
-- a ausência de `.git` reduz a rastreabilidade de origem; não remover os
-  backups até o repositório ser colocado sob controle de versão.
+- manter os backups de estabilização até a revisão e o commit das mudanças
+  correspondentes.
+
+## Adendo — migration 0055
+
+`0055_delivery_source_invariant` deriva de `0054_delivery_model_sync` e corrige
+o contrato de origem das publicações do delivery legado:
+
+- `package_id` passa a aceitar `NULL`;
+- exatamente uma entre `package_id` e `assessment_version_id` deve existir;
+- a FK da versão de avaliação usa `ON DELETE RESTRICT`;
+- o upgrade bloqueia registros sem uma origem canônica exclusiva;
+- o downgrade bloqueia publicações `assessment-only`, que não podem ser
+  representadas pela 0054 sem perda ou fabricação de dados.
+
+A duplicação de publicações integradas agora preserva o vínculo com o
+Assessment Hub e a proveniência imutável das questões.
+
+Backup anterior à 0055:
+
+`storage/backups/educode_pre_0055_20260730.dump`
+
+- tamanho: `1.571.828` bytes;
+- SHA-256:
+  `87941E0FC25467D32CF593E4E56435E3034449BD0B84A1C9F7C93611B3E4175D`.
+
+Validações da 0055:
+
+- lint focado: sucesso;
+- testes focados: `21 passed`;
+- suíte backend: `491 passed`, `1 skipped`, `1 warning`;
+- frontend lint, TypeScript e Vite: sucesso;
+- build das imagens backend e frontend: sucesso;
+- upgrade, downgrade seguro e novo upgrade: sucesso;
+- guarda de downgrade com `assessment-only`: sucesso;
+- `alembic current` e `heads`: `0055_delivery_source_invariant`, head único;
+- backend: healthy;
+- healthchecks: `live=alive`, `ready=ready`.
+
+O `alembic check` continua falhando exclusivamente pelos 74 índices candidatos
+já auditados. Eles permanecem fora da 0055 para evitar índices simples,
+redundantes ou sem evidência operacional.
