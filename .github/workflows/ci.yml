@@ -92,7 +92,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
-      - run: docker compose up -d --build db redis backend worker-observability
+      - name: Start core services
+        run: docker compose up -d --build db redis backend
       - name: Wait for readiness
         run: |
           for attempt in {1..60}; do
@@ -101,8 +102,9 @@ jobs:
             fi
             sleep 5
           done
-          docker compose logs backend --tail 200
           exit 1
+      - name: Start observability worker
+        run: docker compose up -d --build worker-observability
       - name: Validate Prometheus exposition
         run: curl --fail --silent http://localhost:8000/api/v1/observability/metrics | grep educode_http_requests_total
       - name: Run non-destructive smoke test
@@ -111,5 +113,8 @@ jobs:
           INITIAL_ADMIN_EMAIL: admin@educode.com
           INITIAL_ADMIN_PASSWORD: Admin@123456
         run: python scripts/smoke_test.py
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose logs backend worker-observability --tail 200
       - if: always()
         run: docker compose down --remove-orphans
