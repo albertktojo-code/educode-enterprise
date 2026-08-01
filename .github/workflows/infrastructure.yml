@@ -16,20 +16,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
         with: {version: v3.16.4}
-      - uses: azure/setup-kubectl@v4
-        with: {version: v1.31.4}
       - name: Helm lint
         run: helm lint infra/kubernetes/helm/educode
       - name: Render homologation
-        run: helm template educode-homolog infra/kubernetes/helm/educode -f infra/kubernetes/helm/educode/values-homologation.yaml > /tmp/homolog.yaml
-      - name: Render production
-        run: helm template educode-production infra/kubernetes/helm/educode -f infra/kubernetes/helm/educode/values-production.yaml > /tmp/production.yaml
-      - name: Validate rendered manifests
         run: |
-          kubectl apply --dry-run=client --validate=false -f /tmp/homolog.yaml
-          kubectl apply --dry-run=client --validate=false -f /tmp/production.yaml
-      - name: Validate Argo CD manifests
-        run: kubectl apply --dry-run=client --validate=false -f infra/argocd/project.yaml -f infra/argocd/applicationset.yaml
+          mkdir -p rendered
+          helm template educode-homolog infra/kubernetes/helm/educode -f infra/kubernetes/helm/educode/values-homologation.yaml > rendered/homolog.yaml
+      - name: Render production
+        run: helm template educode-production infra/kubernetes/helm/educode -f infra/kubernetes/helm/educode/values-production.yaml > rendered/production.yaml
+      - name: Validate rendered manifests
+        uses: docker://ghcr.io/yannh/kubeconform:v0.8.0
+        with:
+          entrypoint: /kubeconform
+          args: -strict -summary -ignore-missing-schemas rendered infra/argocd
 
   compose-cloud-profile:
     runs-on: ubuntu-latest
@@ -44,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
           scan-ref: infra

@@ -446,15 +446,36 @@ async def operational_overview(session: AsyncSession, organization_id: UUID, set
     db_state, db_latency, _ = await database_status(session)
     redis_state, redis_latency, _ = await redis_status(settings)
     workers = await worker_status(session)
-    job_counts = dict((await session.execute(select(BackgroundJob.status, func.count(BackgroundJob.id)).where(
-        BackgroundJob.organization_id == organization_id
-    ).group_by(BackgroundJob.status))).all())
-    incident_counts = dict((await session.execute(select(SystemIncident.status, func.count(SystemIncident.id)).where(
-        SystemIncident.organization_id == organization_id
-    ).group_by(SystemIncident.status))).all())
-    alert_counts = dict((await session.execute(select(OperationalAlertEvent.status, func.count(OperationalAlertEvent.id)).where(
-        OperationalAlertEvent.organization_id == organization_id
-    ).group_by(OperationalAlertEvent.status))).all())
+    job_counts: dict[str, int] = {
+        str(row[0]): int(row[1])
+        for row in (
+            await session.execute(
+                select(BackgroundJob.status, func.count(BackgroundJob.id))
+                .where(BackgroundJob.organization_id == organization_id)
+                .group_by(BackgroundJob.status)
+            )
+        ).all()
+    }
+    incident_counts: dict[str, int] = {
+        str(row[0]): int(row[1])
+        for row in (
+            await session.execute(
+                select(SystemIncident.status, func.count(SystemIncident.id))
+                .where(SystemIncident.organization_id == organization_id)
+                .group_by(SystemIncident.status)
+            )
+        ).all()
+    }
+    alert_counts: dict[str, int] = {
+        str(row[0]): int(row[1])
+        for row in (
+            await session.execute(
+                select(OperationalAlertEvent.status, func.count(OperationalAlertEvent.id))
+                .where(OperationalAlertEvent.organization_id == organization_id)
+                .group_by(OperationalAlertEvent.status)
+            )
+        ).all()
+    }
     slo_summary = {"met": 0, "violated": 0, "insufficient_data": 0}
     for result in slo_results:
         slo_summary[result["status"]] += 1
