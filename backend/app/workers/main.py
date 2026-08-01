@@ -5,18 +5,17 @@ import asyncio
 import json
 import os
 import socket
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
-from typing import Any, Awaitable, Callable
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 
+from app.anime_studio.rendering import render_anime_job
 from app.core.config import get_settings
 from app.db.session import AsyncSessionFactory
 from app.models.ai_runtime import AIGenerationRequest
-from app.models.platform import BackupRun, RestoreTest
-from app.services.platform import execute_backup, execute_restore_test
-
 from app.models.operations import (
     BackgroundJob,
     BackgroundJobAttempt,
@@ -24,6 +23,7 @@ from app.models.operations import (
     ResourceReservation,
     WorkerHeartbeat,
 )
+from app.models.platform import BackupRun, RestoreTest
 from app.services.ai.orchestrator import run_generation
 from app.services.operations import (
     add_job_event,
@@ -36,6 +36,7 @@ from app.services.operations import (
     retry_delay_seconds,
     utcnow,
 )
+from app.services.platform import execute_backup, execute_restore_test
 
 settings = get_settings()
 ProgressCallback = Callable[[int, str, dict[str, Any] | None], Awaitable[None]]
@@ -127,7 +128,9 @@ async def generic_steps_handler(job: BackgroundJob, progress: ProgressCallback) 
     steps = (
         [str(item) for item in custom_steps if str(item).strip()]
         if isinstance(custom_steps, list) and custom_steps
-        else steps_by_type.get(job.job_type, ["Preparando", "Executando", "Validando", "Finalizando"])
+        else steps_by_type.get(
+            job.job_type, ["Preparando", "Executando", "Validando", "Finalizando"]
+        )
     )
     total = len(steps)
     for index, step in enumerate(steps, start=1):
@@ -178,7 +181,6 @@ async def ensure_circuit_allows(session, request: AIGenerationRequest) -> None:
         if circuit.next_probe_at and circuit.next_probe_at > utcnow():
             raise RuntimeError("Provedor temporariamente indisponível: circuit breaker aberto")
         circuit.state = "half_open"
-
 
 
 async def process_job(job_id: UUID, worker_name: str) -> None:
@@ -241,7 +243,9 @@ async def process_job(job_id: UUID, worker_name: str) -> None:
 
     try:
         await update_heartbeat(worker_name, job.queue_name, status="busy", current_job_id=job.id)
-        if job.job_type == "platform_restore_test":
+        if job.job_type == "anime_render":
+            result = await render_anime_job(job, progress)
+        elif job.job_type == "platform_restore_test":
             await progress(10, "Validando checksum e arquivo")
             async with AsyncSessionFactory() as restore_session:
                 restore_test = await restore_session.get(
@@ -286,7 +290,9 @@ async def process_job(job_id: UUID, worker_name: str) -> None:
         elif job.job_type == "platform_backup":
             await progress(10, "Preparando backup seguro")
             async with AsyncSessionFactory() as backup_session:
-                backup = await backup_session.get(BackupRun, UUID(str(job.input_snapshot["backup_run_id"])))
+                backup = await backup_session.get(
+                    BackupRun, UUID(str(job.input_snapshot["backup_run_id"]))
+                )
                 if backup is None:
                     raise RuntimeError("Registro de backup não encontrado")
                 backup.status = "processing"
@@ -464,15 +470,21 @@ async def process_job(job_id: UUID, worker_name: str) -> None:
                 )
             await error_session.commit()
             if can_retry:
+
                 async def requeue_later(job_id_to_queue: UUID, wait_seconds: int) -> None:
                     await asyncio.sleep(wait_seconds)
                     async with AsyncSessionFactory() as retry_session:
                         retry_job = await retry_session.get(BackgroundJob, job_id_to_queue)
-                        if retry_job and retry_job.status == "retrying" and not retry_job.cancel_requested:
+                        if (
+                            retry_job
+                            and retry_job.status == "retrying"
+                            and not retry_job.cancel_requested
+                        ):
                             retry_job.status = "queued"
                             retry_job.current_step = "Na fila para nova tentativa"
                             await retry_session.commit()
                             await push_job(retry_job)
+
                 asyncio.create_task(requeue_later(current.id, delay))
     finally:
         await update_heartbeat(worker_name, job.queue_name, status="idle", current_job_id=None)
@@ -482,20 +494,29 @@ async def recover_pending_jobs(queue_name: str) -> None:
     async with AsyncSessionFactory() as session:
         now = utcnow()
         stale_before = now - timedelta(minutes=10)
-        jobs = list((await session.scalars(
-            select(BackgroundJob).where(
-                BackgroundJob.queue_name == queue_name,
-                (
-                    BackgroundJob.status.in_(["pending", "queued", "retrying"])
-                    | (
-                        BackgroundJob.status.in_(["processing", "waiting_provider", "validating"])
-                        & (BackgroundJob.updated_at < stale_before)
+        jobs = list(
+            (
+                await session.scalars(
+                    select(BackgroundJob)
+                    .where(
+                        BackgroundJob.queue_name == queue_name,
+                        (
+                            BackgroundJob.status.in_(["pending", "queued", "retrying"])
+                            | (
+                                BackgroundJob.status.in_(
+                                    ["processing", "waiting_provider", "validating"]
+                                )
+                                & (BackgroundJob.updated_at < stale_before)
+                            )
+                        ),
+                        (BackgroundJob.run_after.is_(None)) | (BackgroundJob.run_after <= now),
+                        BackgroundJob.cancel_requested.is_(False),
                     )
-                ),
-                (BackgroundJob.run_after.is_(None)) | (BackgroundJob.run_after <= now),
-                BackgroundJob.cancel_requested.is_(False),
-            ).order_by(BackgroundJob.priority.desc(), BackgroundJob.created_at).limit(100)
-        )).all())
+                    .order_by(BackgroundJob.priority.desc(), BackgroundJob.created_at)
+                    .limit(100)
+                )
+            ).all()
+        )
         for job in jobs:
             if await push_job(job):
                 job.status = "queued"

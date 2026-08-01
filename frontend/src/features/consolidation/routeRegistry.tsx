@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { adaptiveEvolutionRoutes } from "../adaptiveEvolution/routes";
 import { adaptiveInsightsRoutes } from "../adaptiveInsights/routes";
+import { animeStudioRoutes } from "../animeStudio/routes";
 import { assessmentAnalyticsRoutes } from "../assessmentAnalytics/routes";
 import { assessmentDeliveryRoutes } from "../assessmentDelivery/routes";
 import { assessmentHubRoutes } from "../assessmentHub/routes";
@@ -40,6 +41,7 @@ function normalize(
 export const consolidatedFeatureRoutes: ConsolidatedFeatureRoute[] = [
   ...normalize(adaptiveEvolutionRoutes),
   ...normalize(adaptiveInsightsRoutes),
+  ...normalize(animeStudioRoutes),
   ...normalize(assessmentAnalyticsRoutes),
   ...normalize(assessmentDeliveryRoutes),
   ...normalize(assessmentHubRoutes),

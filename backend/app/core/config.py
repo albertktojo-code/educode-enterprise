@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     creative_storage_path: str = "/app/storage/creative"
     max_creative_asset_size_mb: int = Field(default=25, ge=1, le=200)
     institutional_asset_storage_path: str = "/app/storage/institutional-assets"
+    max_anime_media_size_mb: int = Field(default=250, ge=1, le=2048)
     backup_storage_path: str = "/app/storage/backups"
     observability_metrics_token: str = ""
     metric_snapshot_interval_seconds: int = Field(default=60, ge=10, le=3600)
@@ -149,14 +150,10 @@ def validate_runtime_security(settings: Settings) -> None:
     """Block known development credentials outside local development."""
     secret = settings.jwt_secret_key.strip().lower()
     insecure_secret = (
-        len(secret) < 32
-        or secret.startswith("change-me")
-        or secret.startswith("troque-")
+        len(secret) < 32 or secret.startswith("change-me") or secret.startswith("troque-")
     )
     if settings.environment != "development" and insecure_secret:
-        raise RuntimeError(
-            "JWT_SECRET_KEY must be replaced outside the development environment."
-        )
+        raise RuntimeError("JWT_SECRET_KEY must be replaced outside the development environment.")
 
 
 @lru_cache

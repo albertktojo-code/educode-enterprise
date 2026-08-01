@@ -88,7 +88,8 @@ def test_student_help_and_teacher_support_stay_in_canonical_session_events() -> 
         "app/comic_page_editor/student_experience.py"
     )
     assert "STUDENT_HELP_REQUESTED" in api
-    assert "/assessment-delivery/sessions/" in api
+    assert 'const DELIVERY_BASE = "/assessment-delivery"' in api
+    assert "`${DELIVERY_BASE}/sessions/${sessionId}/events`" in api
     assert "teacher_support" in page
     assert "released_answer_key" in page
     assert "AssessmentSessionEvent" in service

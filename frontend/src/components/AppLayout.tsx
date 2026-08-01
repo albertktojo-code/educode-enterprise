@@ -52,6 +52,7 @@ const teacherGroups: NavGroup[] = [
       { to: "/estatistica", label: "Laboratório estatístico", icon: "▥" },
       { to: "/estatistica/avancado", label: "Pesquisa avançada", icon: "⌕" },
       { to: "/hqs", label: "Minhas HQs", icon: "▤" },
+      { to: "/anime-studio", label: "Estúdio Anime", icon: "▶" },
       { to: "/comic-reader", label: "Leitor e apresentações", icon: "▶" },
       {
         to: "/teacher/comic-reader-analytics",

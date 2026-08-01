@@ -27,6 +27,8 @@ except ImportError:  # Allows diagnostics before optional worker dependencies ar
 
         async def aclose(self):
             return None
+
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,6 +49,7 @@ ACTIVE_STATUSES = {"pending", "queued", "processing", "waiting_provider", "valid
 SUPPORTED_JOB_TYPES = {
     "ai_generation",
     "media_generation",
+    "anime_render",
     "accessibility_generation",
     "document_processing",
     "document_indexing",
@@ -80,7 +83,10 @@ def utcnow() -> datetime:
 
 def queue_for_job_type(job_type: str) -> str:
     normalized = job_type.lower()
-    if normalized.startswith("ai_") or normalized in {"media_generation", "accessibility_generation"}:
+    if normalized.startswith("ai_") or normalized in {
+        "media_generation",
+        "accessibility_generation",
+    }:
         return "ai"
     if normalized in {
         "document_processing",
@@ -342,9 +348,7 @@ async def add_job_event(
 async def push_job(job: BackgroundJob) -> bool:
     client = get_redis()
     try:
-        payload = json.dumps(
-            {"job_id": str(job.id), "priority": job.priority}, ensure_ascii=False
-        )
+        payload = json.dumps({"job_id": str(job.id), "priority": job.priority}, ensure_ascii=False)
         await client.lpush(redis_key(job.queue_name, priority_bucket(job.priority)), payload)
         return True
     except RedisError:
@@ -391,11 +395,7 @@ async def create_job_notification(
 
 async def dependencies_satisfied(session: AsyncSession, job_id: UUID) -> bool:
     rows = list(
-        (
-            await session.scalars(
-                select(JobDependency).where(JobDependency.job_id == job_id)
-            )
-        ).all()
+        (await session.scalars(select(JobDependency).where(JobDependency.job_id == job_id))).all()
     )
     for row in rows:
         dependency = await session.get(BackgroundJob, row.depends_on_job_id)
@@ -411,7 +411,9 @@ def semantic_cache_key(request: AIGenerationRequest) -> str:
         "action_name": request.action_name,
         "request_type": request.request_type,
         "model_id": str(request.model_id) if request.model_id else None,
-        "prompt_template_id": str(request.prompt_template_id) if request.prompt_template_id else None,
+        "prompt_template_id": str(request.prompt_template_id)
+        if request.prompt_template_id
+        else None,
         "rag_context_id": str(request.rag_context_id) if request.rag_context_id else None,
         "input": request.input_snapshot,
         "parameters": {
@@ -465,7 +467,9 @@ async def register_cached_result(
             request_fingerprint={
                 "request_type": request.request_type,
                 "model_id": str(request.model_id) if request.model_id else None,
-                "prompt_template_id": str(request.prompt_template_id) if request.prompt_template_id else None,
+                "prompt_template_id": str(request.prompt_template_id)
+                if request.prompt_template_id
+                else None,
                 "rag_context_id": str(request.rag_context_id) if request.rag_context_id else None,
             },
             result_id=result.id,
@@ -483,12 +487,14 @@ async def average_completion_seconds(session: AsyncSession, organization_id: UUI
     rows = list(
         (
             await session.scalars(
-                select(BackgroundJob).where(
+                select(BackgroundJob)
+                .where(
                     BackgroundJob.organization_id == organization_id,
                     BackgroundJob.status == "completed",
                     BackgroundJob.started_at.is_not(None),
                     BackgroundJob.completed_at.is_not(None),
-                ).limit(500)
+                )
+                .limit(500)
             )
         ).all()
     )
