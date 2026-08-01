@@ -91,7 +91,17 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - run: cp .env.example .env
+      - name: Configure smoke environment
+        run: |
+          cp .env.example .env
+          sed -i \
+            -e 's#^DOCUMENT_STORAGE_PATH=.*#DOCUMENT_STORAGE_PATH=/tmp/educode-ci-documents#' \
+            -e 's#^CREATIVE_STORAGE_PATH=.*#CREATIVE_STORAGE_PATH=/tmp/educode-ci-creative#' \
+            -e 's#^INSTITUTIONAL_ASSET_STORAGE_PATH=.*#INSTITUTIONAL_ASSET_STORAGE_PATH=/tmp/educode-ci-institutional-assets#' \
+            -e 's#^OBJECT_STORAGE_LOCAL_PATH=.*#OBJECT_STORAGE_LOCAL_PATH=/tmp/educode-ci-objects#' \
+            -e 's#^BACKUP_STORAGE_PATH=.*#BACKUP_STORAGE_PATH=/tmp/educode-ci-backups#' \
+            -e 's#^AUTH_MAIL_OUTBOX_PATH=.*#AUTH_MAIL_OUTBOX_PATH=/tmp/educode-ci-auth-mail-outbox#' \
+            .env
       - name: Start core services
         run: docker compose up -d --build db redis backend
       - name: Wait for readiness
@@ -102,6 +112,8 @@ jobs:
             fi
             sleep 5
           done
+          curl --silent --show-error http://localhost:8000/api/v1/health/dependencies || true
+          echo
           exit 1
       - name: Start observability worker
         run: docker compose up -d --build worker-observability
