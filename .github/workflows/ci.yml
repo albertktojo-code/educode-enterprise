@@ -33,7 +33,7 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET_KEY: ci-secret-with-more-than-thirty-two-characters
       BACKEND_CORS_ORIGINS: '["http://localhost:5173"]'
-      INSTITUTIONAL_ASSET_STORAGE_PATH: ${{ runner.temp }}/educode-institutional-assets
+      INSTITUTIONAL_ASSET_STORAGE_PATH: /tmp/educode-ci-institutional-assets
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
