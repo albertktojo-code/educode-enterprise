@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
-from typing import Protocol
+from typing import Any, Protocol
 
 from app.core.config import Settings
 
@@ -117,7 +117,7 @@ class S3CompatibleObjectStorage:
         self.prefix = prefix.strip("/")
         self.use_ssl = use_ssl
 
-    def _client(self):
+    def _client(self) -> Any:
         try:
             import boto3
         except ImportError as exc:  # pragma: no cover - validado no container final

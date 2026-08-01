@@ -16,6 +16,8 @@ def revision_metadata(path: Path) -> dict[str, Any]:
     values: dict[str, Any] = {}
     for node in tree.body:
         if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            if node.value is None:
+                continue
             try:
                 values[node.target.id] = ast.literal_eval(node.value)
             except (ValueError, TypeError):
