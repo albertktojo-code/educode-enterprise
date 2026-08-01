@@ -49,7 +49,13 @@ def main() -> int:
             profile = request_json("/api/v1/auth/me", token=access_token)
             checks.append(("profile", profile.get("email") == EMAIL.lower(), str(profile.get("email"))))
             version = request_json("/api/v1/platform/version", token=access_token)
-            checks.append(("platform_version", version.get("migration_revision") == "0025_ops_observability", str(version)))
+            checks.append(
+                (
+                    "platform_version",
+                    version.get("migration_revision") == "0056_anime_audiovisual",
+                    str(version),
+                )
+            )
             observability = request_json("/api/v1/observability/overview", token=access_token)
             checks.append(("observability", bool(observability.get("generated_at")), str(observability.get("platform_status"))))
 
