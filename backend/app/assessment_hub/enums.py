@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+from enum import StrEnum
+
+
+class RecordStatus(StrEnum):
+    DRAFT = "DRAFT"
+    REVIEW = "REVIEW"
+    PUBLISHED = "PUBLISHED"
+    ARCHIVED = "ARCHIVED"
+
+
+class QuestionType(StrEnum):
+    SINGLE_CHOICE = "SINGLE_CHOICE"
+    MULTIPLE_CHOICE = "MULTIPLE_CHOICE"
+    TRUE_FALSE = "TRUE_FALSE"
+    NUMERIC = "NUMERIC"
+    SHORT_TEXT = "SHORT_TEXT"
+    MATCHING = "MATCHING"
+    ORDERING = "ORDERING"
+    FILL_BLANKS = "FILL_BLANKS"
+    CROSSWORD = "CROSSWORD"
+    WORD_SEARCH = "WORD_SEARCH"
+    ESSAY = "ESSAY"
+    PROJECT = "PROJECT"
+    MULTIMEDIA = "MULTIMEDIA"
+
+
+class AssessmentStatus(StrEnum):
+    DRAFT = "DRAFT"
+    PUBLISHED = "PUBLISHED"
+    CLOSED = "CLOSED"
+    ARCHIVED = "ARCHIVED"
+
+
+class AttemptStatus(StrEnum):
+    CREATED = "CREATED"
+    IN_PROGRESS = "IN_PROGRESS"
+    SUBMITTED = "SUBMITTED"
+    UNDER_REVIEW = "UNDER_REVIEW"
+    SCORED = "SCORED"
+    CANCELLED = "CANCELLED"
+
+
+class CorrectionType(StrEnum):
+    AUTOMATIC = "AUTOMATIC"
+    HUMAN = "HUMAN"
+    ASSISTED = "ASSISTED"
+
+
+class InstrumentType(StrEnum):
+    INTERNAL = "INTERNAL"
+    EXTERNAL = "EXTERNAL"
+    COMPUTATIONAL_THINKING = "COMPUTATIONAL_THINKING"
+    DIAGNOSTIC = "DIAGNOSTIC"
+    FORMATIVE = "FORMATIVE"
+    SUMMATIVE = "SUMMATIVE"
+
+
+class AccessDecision(StrEnum):
+    ALLOWED = "ALLOWED"
+    REQUIRES_PERMISSION = "REQUIRES_PERMISSION"
+    BLOCKED = "BLOCKED"

@@ -1,0 +1,22 @@
+# Critérios de aceitação — Sprint 14.2
+
+- **CA01:** registrar resultado de intervenção com domínio anterior e posterior.
+- **CA02:** recomendar intervenção a partir do histórico com confiança e justificativa.
+- **CA03:** indicar insuficiência de evidências quando aplicável.
+- **CA04:** calcular conclusão, acerto, ganho, tentativas, pistas e duração de materiais.
+- **CA05:** marcar a análise como descritiva e não causal.
+- **CA06:** consolidar indicadores institucionais de trilhas.
+- **CA07:** criar modelos com versão e hash.
+- **CA08:** impedir sobrescrita conceitual de modelo publicado.
+- **CA09:** simular recomendações sem alterar dados reais.
+- **CA10:** criar experimentos com duas ou mais estratégias.
+- **CA11:** manter atribuição estável por participante.
+- **CA12:** comparar estratégias conforme a direção da métrica.
+- **CA13:** alertar quando a amostra mínima não for atingida.
+- **CA14:** aplicar RBAC e isolamento organizacional.
+- **CA15:** registrar auditoria das ações relevantes.
+- **CA16:** aplicar migration no head real do projeto.
+- **CA17:** instalar sem duplicar imports ou rotas.
+- **CA18:** validar importação do backend antes da migration.
+- **CA19:** fornecer relatório e rollback.
+- **CA20:** permitir reaplicação idempotente.

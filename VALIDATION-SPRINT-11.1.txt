@@ -1,0 +1,26 @@
+EduCode Enterprise 2.0 — Validação da Sprint 11.1
+Data: 22/07/2026
+
+RESULTADOS
+- Python compileall: aprovado.
+- Pytest: 85 testes aprovados.
+- Testes específicos da Sprint 11.1: 8 novos testes, aprovados.
+- SQLAlchemy configure_mappers: aprovado.
+- OpenAPI: 201 caminhos.
+- Rotas do Laboratório Estatístico: 27 caminhos.
+- Alembic head: 0019_statistical_lab_advanced.
+- Alembic SQL offline completo: 2.419 linhas.
+- Migração 0019 sem novos enums PostgreSQL; não há risco de enum duplicado.
+- Gráfico PNG real: aprovado.
+- Gráfico SVG real: aprovado.
+- Relatório PDF real: aprovado.
+- Relatório DOCX real: aprovado.
+- TypeScript/TSX: 62 arquivos analisados sintaticamente, sem erros.
+- package-lock.json preserva registro público e foi atualizado para 0.11.1.
+- ZIP deve ser entregue sem node_modules, caches, .pyc, segredos ou stubs de teste.
+
+LIMITAÇÕES DO AMBIENTE
+- Docker não está instalado no runtime de validação; PostgreSQL real e build de contêiner não foram executados.
+- npm ci excedeu o limite da execução e não concluiu; build completo do Vite e ESLint devem ser confirmados no Docker.
+- Ruff e mypy não estavam disponíveis no runtime.
+- Dependências ausentes do runtime foram substituídas somente durante os testes por stubs externos temporários; esses stubs não fazem parte do pacote.

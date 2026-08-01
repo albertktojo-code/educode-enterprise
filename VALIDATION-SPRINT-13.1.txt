@@ -1,0 +1,46 @@
+EduCode Enterprise 2.0 — Validação da Sprint 13.1
+Data: 2026-07-24
+
+Resultado geral
+- Regressão pytest: 116 testes aprovados.
+- Python compileall: aprovado.
+- SQLAlchemy metadata: 131 tabelas.
+- Novas tabelas da Sprint 13.1: 7.
+- OpenAPI: 292 caminhos e 363 operações.
+- Caminhos de observabilidade: 16.
+- IDs OpenAPI duplicados: 0.
+- Alembic: 25 revisions, um único head.
+- Head: 0025_ops_observability.
+- Maior identificador Alembic: 32 caracteres.
+- SQL PostgreSQL offline: 3.769 linhas.
+- TypeScript/TSX: 75 arquivos sem erro sintático.
+- Nova tela AdminObservabilityPage e dependências locais: checagem TypeScript estrita aprovada com declarações externas de validação.
+- Docker Compose: 11 serviços e 9 volumes.
+- Serviços opcionais por profile observability: Prometheus e Grafana.
+- Arquivos Python: 190.
+- Arquivos TypeScript/TSX: 75.
+- Total de arquivos antes do empacotamento: 344.
+- Pacotes resolvidos pelo registro público npm: 203.
+- Pacotes resolvidos por registros não públicos: 0.
+
+Cobertura funcional da Sprint 13.1
+- métricas Prometheus;
+- request_id e trace_id;
+- OpenTelemetry opcional;
+- snapshots operacionais persistidos;
+- SLOs e orçamento de erro;
+- alertas explicáveis com cooldown;
+- quotas institucionais;
+- bloqueio de tarefas e custo de IA quando configurado;
+- diagnóstico integrado;
+- reconciliação e reparo operacional seguro;
+- histórico gráfico no frontend;
+- worker periódico de observabilidade;
+- Prometheus/Grafana opcionais.
+
+Limitações do ambiente de geração
+- Docker, PostgreSQL e Redis reais não foram executados neste ambiente.
+- A regressão usou stubs externos apenas para pgvector, redis, pwdlib e sessão de banco ausentes no runtime. Nenhum stub foi incluído no pacote.
+- npm ci excedeu o limite do ambiente; por isso o build Vite e ESLint completos devem ser confirmados no Docker/CI.
+- Ruff e mypy não estavam instalados localmente; permanecem configurados no pipeline CI.
+- A migration foi compilada integralmente em modo SQL PostgreSQL offline.

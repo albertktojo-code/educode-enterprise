@@ -1,0 +1,18 @@
+Sprint 11.2 — validação executada em 22/07/2026
+
+- Python compileall: aprovado
+- Pytest: 88 testes aprovados
+- OpenAPI: 219 caminhos
+- Núcleo de Avaliação Integrada: 18 caminhos
+- Alembic offline PostgreSQL: aprovado até 0020_integrated_assessment_core
+- SQL offline completo: 2666 linhas
+- Modelos SQLAlchemy carregados: aprovado
+- Router FastAPI carregado: aprovado
+- Frontend: nova rota /avaliacoes e menu do professor
+- Dados reutilizados: material_assignments, student_attempts e student_answers
+- Importações: CSV, XLSX, JSON; contratos QTI, LTI, xAPI e SCORM
+- Segurança: isolamento por organização e papéis owner/admin/teacher
+
+Limitações do ambiente:
+- Docker/PostgreSQL real não disponíveis.
+- npm ci/build não executado por ausência de dependências instaladas e acesso ao registry.

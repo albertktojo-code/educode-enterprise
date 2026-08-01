@@ -1,0 +1,21 @@
+Sprint 09.1 — validation report
+Date: 2026-07-22
+
+Validated successfully:
+- Python compileall for app, tests and Alembic.
+- Backend regression: 63 tests passed.
+- SQLAlchemy model imports and FastAPI application import.
+- OpenAPI: 150 paths loaded; 7 storyboard/preview-related paths.
+- Alembic head: 0015_storyboard_preview.
+- Complete PostgreSQL offline SQL: 1,703 lines compiled.
+- comic_preview_review_status enum: exactly one CREATE TYPE statement.
+- TypeScript parsing: 52 TS/TSX files, zero parse errors.
+- Focused strict TypeScript type check for the new preview/storyboard modules.
+- package-lock.json uses the public npm registry; no private registry URL.
+- ZIP integrity test.
+
+Validation environment notes:
+- Temporary import-only substitutes were used for pwdlib, asyncpg and pgvector because these packages were unavailable in the execution environment. These substitutes are outside the project and are not included in the ZIP.
+- Docker and a real PostgreSQL service were unavailable, so migrations were compiled in PostgreSQL offline mode rather than applied to a live database.
+- npm ci did not finish within the execution limit. The complete Vite production build and ESLint should be confirmed when Docker builds the frontend image.
+- Ruff and mypy executables were unavailable in this environment.

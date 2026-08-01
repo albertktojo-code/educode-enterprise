@@ -1,0 +1,61 @@
+EduCode Enterprise 2.0 — Validation Sprint 13
+Date: 2026-07-24
+
+RESULTS
+- Python compileall: PASSED
+- Automated regression: 112 tests passed
+- FastAPI OpenAPI: 276 paths / 345 operations
+- Sprint 13 platform and health paths: 19
+- Duplicate OpenAPI operation IDs: 0
+- SQLAlchemy metadata: 124 tables
+- New Sprint 13 tables: 9
+- Alembic head: 0024_platform_hardening
+- Alembic revisions: 24; maximum revision ID length: 32
+- Revision IDs over 32 characters: 0
+- Full PostgreSQL offline SQL: 3,581 lines
+- TypeScript/TSX syntax parse: 74 files, 0 parse errors
+- Docker Compose YAML: 8 services, 7 volumes
+- CI workflow YAML: 4 jobs
+- npm package-lock: 203 resolved URLs, all from the public npm registry
+- Secret-pattern scan: no embedded private keys or provider tokens found
+- Package cleanup: no .env, node_modules, dist, caches or .pyc files
+
+SPRINT 13 COVERAGE
+- request ID, safe internal errors and structured operational context
+- security headers, CSP and production HSTS
+- Redis rate limiting with safe local fallback
+- liveness, readiness and dependency health checks
+- deployment preflight and version visibility
+- non-root backend image
+- PostgreSQL/full-storage backup jobs with SHA-256 checksums
+- restore verification in a temporary PostgreSQL database
+- backup and restore restricted to the global platform operator
+- incident management and service-health snapshots
+- feature flags and maintenance-mode support
+- LGPD retention policies
+- login and password security events
+- immutable hash-linked audit events with full hash recalculation
+- organization data-integrity checks
+- CI workflow, Dependabot and non-destructive smoke tests
+- Windows PowerShell operational runbooks
+
+LIMITATIONS OF THIS VALIDATION ENVIRONMENT
+- Docker Desktop, PostgreSQL and Redis daemons were not available for live container execution.
+- asyncpg, redis, pgvector and pwdlib were unavailable in the local Python package index. External test-only stubs were used to load the application and run the regression. No stubs are included in the ZIP.
+- The restore command flow is covered with mocked subprocess tests, but a live pg_dump/pg_restore cycle must be confirmed in Docker against a disposable environment before production.
+- npm ci did not finish within the execution limit, so the complete Vite build and ESLint run must be confirmed in Docker. All 74 TypeScript/TSX source files parsed without syntax errors.
+- Ruff and mypy executables were unavailable in this runtime. The GitHub Actions workflow runs both in CI.
+
+RECOMMENDED LOCAL VALIDATION
+1. docker compose up -d db redis
+2. docker compose run --rm backend python -m app.operations.preflight
+3. docker compose run --rm backend alembic upgrade head
+4. docker compose up -d --build
+5. docker compose run --rm backend alembic current
+6. docker compose ps
+7. powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1
+
+Expected Alembic result:
+0024_platform_hardening (head)
+
+Never run docker compose down -v on an environment containing data.

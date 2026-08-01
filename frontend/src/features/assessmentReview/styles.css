@@ -1,0 +1,18 @@
+.assessment-review-page { max-width: 1180px; margin: 0 auto; padding: 32px; color: var(--text-primary, #172033); }
+.assessment-review-page header { margin-bottom: 24px; }
+.assessment-review-page h1 { margin: 4px 0 8px; font-size: clamp(1.8rem, 3vw, 2.6rem); }
+.assessment-review-page .eyebrow { margin: 0; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.review-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+.review-metrics article, .review-cards article { border: 1px solid #d8deea; border-radius: 14px; padding: 18px; background: #fff; }
+.review-metrics strong { display: block; font-size: 2rem; }
+.review-metrics span { color: #59647a; }
+.review-table-wrap { overflow-x: auto; border: 1px solid #d8deea; border-radius: 14px; background: #fff; }
+.review-table-wrap table { width: 100%; border-collapse: collapse; }
+.review-table-wrap th, .review-table-wrap td { padding: 14px; border-bottom: 1px solid #e7ebf2; text-align: left; }
+.review-table-wrap button { border: 0; border-radius: 8px; padding: 9px 12px; cursor: pointer; font-weight: 700; }
+.status { display: inline-block; border-radius: 999px; padding: 4px 9px; background: #eef1f7; font-size: .78rem; font-weight: 700; }
+.review-error { border-left: 4px solid currentColor; padding: 12px; }
+.review-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.review-cards article > div { display: flex; justify-content: space-between; gap: 12px; }
+.review-cards h2 { font-size: 1.15rem; }
+@media (max-width: 720px) { .assessment-review-page { padding: 20px; } .review-metrics { grid-template-columns: 1fr; } }

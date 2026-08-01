@@ -1,0 +1,53 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Requisições HTTP",
+      "targets": [{"expr": "sum(educode_http_requests_total)", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Erros HTTP (%)",
+      "targets": [{"expr": "educode_http_error_rate_percent", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Latência p95 (ms)",
+      "targets": [{"expr": "educode_http_latency_p95_ms", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Requisições ativas",
+      "targets": [{"expr": "educode_http_active_requests", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "Taxa de requisições por status",
+      "targets": [{"expr": "sum by (status) (rate(educode_http_requests_total[5m]))", "legendFormat": "{{status}}", "refId": "A"}],
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 6}
+    },
+    {
+      "type": "timeseries",
+      "title": "Latência HTTP",
+      "targets": [
+        {"expr": "educode_http_latency_avg_ms", "legendFormat": "média", "refId": "A"},
+        {"expr": "educode_http_latency_p95_ms", "legendFormat": "p95", "refId": "B"},
+        {"expr": "educode_http_latency_p99_ms", "legendFormat": "p99", "refId": "C"}
+      ],
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 6}
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["educode", "sprint-13.1"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "EduCode — Operação e Observabilidade",
+  "uid": "educode-overview",
+  "version": 1
+}

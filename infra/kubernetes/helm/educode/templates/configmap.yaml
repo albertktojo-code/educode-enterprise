@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.global.configMapName }}
+  labels:
+    {{- include "educode.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT: {{ .Values.global.environment | quote }}
+  APP_VERSION: {{ .Chart.AppVersion | quote }}
+  BUILD_IDENTIFIER: {{ printf "helm-%s" .Chart.Version | quote }}
+  OBJECT_STORAGE_PROVIDER: {{ .Values.storage.provider | quote }}
+  S3_ENDPOINT_URL: {{ .Values.storage.objectStorage.endpoint | quote }}
+  S3_BUCKET_NAME: {{ .Values.storage.objectStorage.bucket | quote }}
+  S3_REGION: {{ .Values.storage.objectStorage.region | quote }}
+  S3_PREFIX: {{ .Values.storage.objectStorage.prefix | quote }}
+  S3_USE_SSL: {{ .Values.storage.objectStorage.useSSL | quote }}
+  KUBERNETES_ENABLED: "true"
+  GITOPS_ENABLED: "true"

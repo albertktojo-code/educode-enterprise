@@ -1,0 +1,12 @@
+.assessment-hub-page { display: grid; gap: 1.25rem; padding: 1.5rem; }
+.assessment-hub-kicker { margin: 0; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.assessment-hub-page h1 { margin: .25rem 0; }
+.assessment-hub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+.assessment-hub-grid article, .assessment-hub-panel, .assessment-hub-notice { border: 1px solid currentColor; border-radius: 12px; padding: 1rem; }
+.assessment-hub-grid strong { display: block; font-size: 2rem; }
+.assessment-hub-grid span { opacity: .72; }
+.assessment-hub-panel { overflow-x: auto; }
+.assessment-hub-panel table { width: 100%; border-collapse: collapse; }
+.assessment-hub-panel th, .assessment-hub-panel td { padding: .7rem; text-align: left; border-bottom: 1px solid currentColor; }
+.assessment-hub-error { border: 1px solid currentColor; padding: 1rem; border-radius: 10px; }
+.assessment-hub-notice { font-size: .92rem; }

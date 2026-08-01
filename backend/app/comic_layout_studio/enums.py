@@ -1,0 +1,65 @@
+from __future__ import annotations
+
+from enum import StrEnum
+
+
+class CanvasStatus(StrEnum):
+    DRAFT = "DRAFT"
+    READY = "READY"
+    PREFLIGHT_REQUIRED = "PREFLIGHT_REQUIRED"
+    EXPORTING = "EXPORTING"
+    EXPORTED = "EXPORTED"
+    ARCHIVED = "ARCHIVED"
+
+
+class LayerType(StrEnum):
+    PANEL = "PANEL"
+    IMAGE = "IMAGE"
+    SPEECH_BALLOON = "SPEECH_BALLOON"
+    THOUGHT_BALLOON = "THOUGHT_BALLOON"
+    CAPTION = "CAPTION"
+    NARRATION = "NARRATION"
+    SOUND_EFFECT = "SOUND_EFFECT"
+    SHAPE = "SHAPE"
+    DECORATION = "DECORATION"
+    PEDAGOGICAL_BADGE = "PEDAGOGICAL_BADGE"
+
+
+class GuideType(StrEnum):
+    CUSTOM = "CUSTOM"
+    MARGIN = "MARGIN"
+    SAFE_AREA = "SAFE_AREA"
+    BLEED = "BLEED"
+    CENTER = "CENTER"
+    BASELINE = "BASELINE"
+
+
+class OperationType(StrEnum):
+    CREATE = "CREATE"
+    UPDATE = "UPDATE"
+    DELETE = "DELETE"
+    MOVE = "MOVE"
+    RESIZE = "RESIZE"
+    ROTATE = "ROTATE"
+    REORDER = "REORDER"
+    GROUP = "GROUP"
+    UNGROUP = "UNGROUP"
+    LOCK = "LOCK"
+    UNLOCK = "UNLOCK"
+
+
+class ExportStatus(StrEnum):
+    QUEUED = "QUEUED"
+    PREFLIGHT = "PREFLIGHT"
+    RENDERING = "RENDERING"
+    PACKAGING = "PACKAGING"
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_WARNINGS = "COMPLETED_WITH_WARNINGS"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class FindingSeverity(StrEnum):
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"

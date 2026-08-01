@@ -1,0 +1,27 @@
+EduCode Enterprise 2.0 — Sprint 12.2
+Data: 2026-07-24
+
+Validações concluídas no ambiente de geração:
+- Python compileall: aprovado.
+- Migration Alembic offline até 0023_ai_async_operations: aprovada.
+- SQL PostgreSQL offline: 3.325 linhas.
+- Revision IDs Alembic acima de 32 caracteres: nenhum.
+- Head Alembic: 0023_ai_async_operations.
+- Metadados SQLAlchemy com stubs apenas para dependências indisponíveis: 115 tabelas.
+- Novas tabelas de operação: 9.
+- OpenAPI com stubs apenas para dependências indisponíveis: 257 caminhos.
+- Rotas de tarefas/operação/notificações: 13 caminhos.
+- IDs de operação OpenAPI duplicados: zero.
+- Regressão pytest: 103 testes aprovados (com stubs externos apenas para dependências indisponíveis no runtime).
+- Testes determinísticos de fila, idempotência, prioridade, retry e classificação de erros: aprovados.
+- TypeScript tsc --noEmit: aprovado.
+- docker-compose.yml analisado por YAML: aprovado.
+- Serviços Compose esperados: db, redis, backend, 4 workers e frontend.
+
+Limitações do runtime:
+- Docker não está instalado no ambiente de geração; execução real de PostgreSQL, Redis e workers deve ser confirmada no Docker Desktop do usuário.
+- O índice Python do runtime não disponibilizou pwdlib, asyncpg, pgvector e redis. Eles permanecem declarados em backend/pyproject.toml e serão instalados durante o Docker build.
+- npm ci não terminou no limite do ambiente. O TypeScript global executou sem erros; o build Vite completo deve ser confirmado no contêiner.
+- Ruff e mypy não estavam instalados no runtime.
+
+A validação com stubs não substitui testes de integração em Docker; foi usada somente para carregar OpenAPI e metadados sem incluir stubs no pacote final.

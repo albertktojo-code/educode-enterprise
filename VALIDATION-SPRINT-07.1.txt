@@ -1,0 +1,40 @@
+EduCode Enterprise 2.0 — Sprint 07.1
+Data: 2026-07-21
+
+Backend
+- Python compileall: aprovado
+- Ruff: aprovado
+- mypy strict: aprovado
+- pytest: 42 aprovados
+- OpenAPI: 99 caminhos
+- Rotas /api/v1/comics: 26 caminhos
+
+Banco
+- Alembic head: 0011_comic_review_control
+- Migration offline PostgreSQL: aprovada
+- Cadeia completa: 0001 até 0011
+
+Frontend
+- npm ci: aprovado
+- TypeScript/Vite build: aprovado
+- ESLint: aprovado
+
+Recursos validados
+- bloqueios granulares respeitados na regeneração
+- três alternativas de regeneração
+- aprovação por especialidade
+- comentários de revisão
+- autosave com revisão
+- undo/redo baseado em snapshots
+- mapa narrativo
+- limites de texto
+- prompt visual estruturado
+- imagem separada dos balões
+- assets criativos congelados por versão
+- detecção de quadros e balões fora dos limites
+
+Observação
+- Docker/PostgreSQL real não foi iniciado neste ambiente.
+- A migration foi compilada integralmente para SQL PostgreSQL.
+- A geração visual real permanece mock.
+- O canvas visual completo será implementado na Sprint 08.

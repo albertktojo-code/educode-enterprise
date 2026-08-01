@@ -1,0 +1,19 @@
+VALIDAÇÃO — SPRINT 11
+
+Concluído:
+- Python compileall: aprovado.
+- Regressão automatizada: 77 testes aprovados.
+- Testes específicos do motor estatístico: aprovados.
+- Execução manual dos principais testes estatísticos: aprovada.
+- OpenAPI: 186 caminhos; 12 caminhos do Laboratório Estatístico.
+- Alembic offline PostgreSQL: 2.276 linhas SQL.
+- Head esperado: 0018_statistical_research_lab.
+- Enums estatísticos: uma criação por tipo no SQL compilado.
+- package-lock usa registro público e versão 0.11.0.
+- Python/TypeScript sem caches ou node_modules no pacote final.
+
+Limitações do ambiente:
+- Os testes completos foram executados com substitutos temporários somente para pwdlib, asyncpg e pgvector, indisponíveis no runtime de validação. Esses substitutos não estão no ZIP.
+- NumPy e SciPy reais estavam disponíveis e foram usados nos testes do motor estatístico.
+- O npm ci não concluiu no limite da execução; por isso, o build Vite e ESLint devem ser confirmados no Docker.
+- Docker/PostgreSQL real não estavam disponíveis; a migration foi validada em SQL PostgreSQL offline.
