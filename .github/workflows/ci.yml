@@ -33,7 +33,12 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET_KEY: ci-secret-with-more-than-thirty-two-characters
       BACKEND_CORS_ORIGINS: '["http://localhost:5173"]'
+      DOCUMENT_STORAGE_PATH: /tmp/educode-ci-documents
+      CREATIVE_STORAGE_PATH: /tmp/educode-ci-creative
       INSTITUTIONAL_ASSET_STORAGE_PATH: /tmp/educode-ci-institutional-assets
+      OBJECT_STORAGE_LOCAL_PATH: /tmp/educode-ci-objects
+      BACKUP_STORAGE_PATH: /tmp/educode-ci-backups
+      AUTH_MAIL_OUTBOX_PATH: /tmp/educode-ci-auth-mail-outbox
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
