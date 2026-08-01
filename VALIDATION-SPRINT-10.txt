@@ -1,0 +1,19 @@
+SPRINT 10 — VALIDATION
+
+Backend
+- Python compileall: aprovado
+- Pytest: 69 testes aprovados
+- OpenAPI: 163 caminhos, 13 caminhos de analytics
+- Cadeia Alembic até 0016_learning_analytics: aprovada
+- SQL PostgreSQL offline: 1.919 linhas
+- CREATE TYPE learning_alert_severity: uma ocorrência
+- CREATE TABLE student_skill_metrics: uma ocorrência
+
+Frontend
+- 57 arquivos TS/TSX analisados sintaticamente com TypeScript transpileModule
+- Novas rotas e componentes de analytics integrados
+- npm ci não concluiu dentro do limite do ambiente; build Vite e ESLint devem ser confirmados no Docker
+
+Ambiente
+- Docker/PostgreSQL real não disponível nesta validação
+- Dependências ausentes pwdlib/asyncpg/pgvector foram substituídas apenas durante os testes por stubs temporários externos ao pacote

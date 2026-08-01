@@ -1,0 +1,6 @@
+apiVersion: v2
+name: educode
+version: 14.0.0
+appVersion: "0.14.0"
+description: EduCode Enterprise 2.0 — plataforma educacional com IA, workers e operação distribuída
+type: application

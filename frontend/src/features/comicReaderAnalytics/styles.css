@@ -1,0 +1,52 @@
+.reader-analytics-page {
+  display: grid;
+  gap: 18px;
+}
+
+.analytics-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+
+.analytics-filters label {
+  display: grid;
+  gap: 5px;
+}
+
+.analytics-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.analytics-card-grid article {
+  display: grid;
+  gap: 4px;
+}
+
+.analytics-card-grid strong {
+  font-size: 1.8rem;
+}
+
+.analytics-table-wrap {
+  overflow-x: auto;
+}
+
+.analytics-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.analytics-table-wrap th,
+.analytics-table-wrap td {
+  padding: 9px;
+  border-bottom: 1px solid #dfe4ea;
+  text-align: left;
+}
+
+.learning-metric {
+  padding: 12px 0;
+  border-bottom: 1px solid #dfe4ea;
+}

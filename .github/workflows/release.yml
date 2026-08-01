@@ -1,0 +1,74 @@
+name: EduCode Release Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Ambiente de destino
+        required: true
+        type: choice
+        options: [homologation, production]
+      version:
+        description: Versão da release
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install ./backend
+      - run: python -m app.operations.migration_check --backend-dir backend --json
+        env: {PYTHONPATH: backend}
+      - run: cp .env.example .env && docker compose config >/dev/null
+      - run: docker compose -f docker-compose.yml -f compose.homolog.yaml config >/dev/null
+
+  build-and-scan:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build immutable images
+        run: |
+          docker build -t educode-backend:${{ inputs.version }} ./backend
+          docker build -t educode-frontend:${{ inputs.version }} ./frontend
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: educode-backend:${{ inputs.version }}
+          format: spdx-json
+          output-file: backend-sbom.spdx.json
+      - name: Scan critical vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: educode-backend:${{ inputs.version }}
+          severity: CRITICAL
+          exit-code: "1"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-sbom-${{ inputs.version }}
+          path: backend-sbom.spdx.json
+
+  deploy-homologation:
+    if: inputs.environment == 'homologation'
+    needs: build-and-scan
+    runs-on: ubuntu-latest
+    environment: homologation
+    steps:
+      - run: echo "A implantação real deve usar o runner/servidor institucional."
+
+  production-approval:
+    if: inputs.environment == 'production'
+    needs: build-and-scan
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: echo "A aprovação manual do ambiente production libera a etapa de implantação."

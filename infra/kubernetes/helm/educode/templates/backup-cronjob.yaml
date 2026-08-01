@@ -1,0 +1,29 @@
+{{- if .Values.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "educode.fullname" . }}-backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: {{ .Values.serviceAccount.name }}
+          securityContext: {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: backup
+              image: "{{ .Values.images.backend.repository }}:{{ .Values.images.backend.tag }}"
+              args: ["python", "-m", "app.operations.backup"]
+              envFrom:
+                - configMapRef: {name: {{ .Values.global.configMapName }}}
+                - secretRef: {name: {{ .Values.global.existingSecret }}}
+              securityContext: {{- toYaml .Values.containerSecurityContext | nindent 16 }}
+              volumeMounts: [{name: tmp, mountPath: /tmp}]
+          volumes: [{name: tmp, emptyDir: {sizeLimit: 5Gi}}]
+{{- end }}

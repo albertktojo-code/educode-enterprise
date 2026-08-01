@@ -1,0 +1,18 @@
+EduCode Enterprise 2.0 — Sprint 07.2
+
+VALIDAÇÕES EXECUTADAS NESTE AMBIENTE
+- Extração limpa da Sprint 07.1: aprovada
+- Aplicação da migration 0012_comic_stabilization: aprovada
+- Parse AST de 102 arquivos Python: aprovado
+- Python compileall de backend/app e backend/tests: aprovado
+- Cadeia Alembic: 0011_comic_review_control -> 0012_comic_stabilization
+- Registro npm: package-lock sem registry privado
+- Rotas FastAPI declaradas no código: 142
+- Testes automatizados declarados no pacote: 47
+
+LIMITAÇÕES DA VALIDAÇÃO LOCAL
+- pytest, Ruff e mypy não foram executados porque o índice Python disponível não forneceu asyncpg/pwdlib e as dependências de desenvolvimento.
+- npm ci excedeu o limite de execução do ambiente; por isso build e ESLint não foram repetidos aqui.
+- Docker/PostgreSQL não estão instalados neste ambiente; a migration não foi aplicada a um banco real.
+
+A instalação normal via Docker usa os Dockerfiles e package-lock incluídos no pacote.

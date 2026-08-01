@@ -1,0 +1,945 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import UTC, datetime
+from typing import Any
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.anime_studio.models import (
+    AnimeAudioTrack,
+    AnimeCaptionCue,
+    AnimeProject,
+    AnimeRender,
+    AnimeScene,
+)
+from app.anime_studio.schemas import (
+    AnimeAudioTrackCreate,
+    AnimeAudioTrackUpdate,
+    AnimeCaptionCreate,
+    AnimeCaptionUpdate,
+    AnimeProjectCreate,
+    AnimeProjectUpdate,
+    AnimeRenderCreate,
+    AnimeRenderReview,
+    AnimeSceneCreate,
+    AnimeSceneUpdate,
+)
+from app.api.actor_context import ActorContext
+from app.models.assets import (
+    InstitutionalAsset,
+    InstitutionalAssetAudit,
+    InstitutionalAssetFile,
+    InstitutionalAssetStatus,
+)
+from app.models.comic import ComicPage, ComicPanel, GeneratedComic
+from app.models.operations import BackgroundJob
+from app.models.pedagogy import GenerationProject
+from app.models.rag import RagContext
+from app.models.studio import TeacherStudioDraft
+from app.services.consolidated_audit import append_domain_audit
+from app.services.operations import create_job, mark_queued
+
+EDITOR_ROLES = {"OWNER", "ADMIN", "ORG_ADMIN", "TEACHER", "EDITOR"}
+REVIEWER_ROLES = {"OWNER", "ADMIN", "ORG_ADMIN", "TEACHER", "REVIEWER"}
+PROJECT_LOAD_OPTIONS = (
+    selectinload(AnimeProject.scenes),
+    selectinload(AnimeProject.audio_tracks),
+    selectinload(AnimeProject.captions),
+    selectinload(AnimeProject.renders),
+)
+
+
+def utcnow() -> datetime:
+    return datetime.now(UTC)
+
+
+def require_editor(actor: ActorContext) -> None:
+    if not actor.roles.intersection(EDITOR_ROLES):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissão insuficiente")
+
+
+def require_reviewer(actor: ActorContext) -> None:
+    if not actor.roles.intersection(REVIEWER_ROLES):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissão insuficiente")
+
+
+async def _validate_project_links(
+    session: AsyncSession,
+    *,
+    organization_id: UUID,
+    generation_project_id: UUID | None = None,
+    rag_context_id: UUID | None = None,
+    teacher_studio_draft_id: UUID | None = None,
+) -> None:
+    checks: tuple[tuple[Any, UUID | None, str], ...] = (
+        (GenerationProject, generation_project_id, "Projeto pedagógico"),
+        (RagContext, rag_context_id, "Contexto RAG"),
+        (TeacherStudioDraft, teacher_studio_draft_id, "Rascunho do estúdio"),
+    )
+    for model, record_id, label in checks:
+        if record_id is None:
+            continue
+        linked_id = await session.scalar(
+            select(model.id).where(
+                model.id == record_id,
+                model.organization_id == organization_id,
+            )
+        )
+        if linked_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"{label} inválido para a organização atual",
+            )
+
+
+async def _validate_comic_sources(
+    session: AsyncSession,
+    *,
+    organization_id: UUID,
+    source_comic_page_id: UUID | None,
+    source_comic_panel_id: UUID | None,
+) -> None:
+    if source_comic_page_id is None and source_comic_panel_id is None:
+        return
+    if source_comic_page_id is not None:
+        valid_page_id = await session.scalar(
+            select(ComicPage.id)
+            .join(GeneratedComic, ComicPage.comic_id == GeneratedComic.id)
+            .where(
+                ComicPage.id == source_comic_page_id,
+                GeneratedComic.organization_id == organization_id,
+            )
+        )
+        if valid_page_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Página de HQ inválida para a organização atual",
+            )
+    if source_comic_panel_id is not None:
+        panel_page_id = await session.scalar(
+            select(ComicPanel.page_id)
+            .join(ComicPage, ComicPanel.page_id == ComicPage.id)
+            .join(GeneratedComic, ComicPage.comic_id == GeneratedComic.id)
+            .where(
+                ComicPanel.id == source_comic_panel_id,
+                GeneratedComic.organization_id == organization_id,
+            )
+        )
+        if panel_page_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Quadro de HQ inválido para a organização atual",
+            )
+        if source_comic_page_id is not None and panel_page_id != source_comic_page_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="O quadro selecionado não pertence à página de HQ informada",
+            )
+
+
+async def get_project(
+    session: AsyncSession,
+    *,
+    organization_id: UUID,
+    project_id: UUID,
+    for_update: bool = False,
+) -> AnimeProject:
+    statement = (
+        select(AnimeProject)
+        .where(
+            AnimeProject.id == project_id,
+            AnimeProject.organization_id == organization_id,
+        )
+        .options(*PROJECT_LOAD_OPTIONS)
+    )
+    if for_update:
+        statement = statement.with_for_update()
+    project = await session.scalar(statement)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Produção de anime não encontrada")
+    return project
+
+
+async def list_projects(
+    session: AsyncSession, *, organization_id: UUID, include_archived: bool = False
+) -> list[AnimeProject]:
+    statement = select(AnimeProject).where(AnimeProject.organization_id == organization_id)
+    if not include_archived:
+        statement = statement.where(AnimeProject.status != "archived")
+    return list((await session.scalars(statement.order_by(AnimeProject.updated_at.desc()))).all())
+
+
+async def _validate_asset_file(
+    session: AsyncSession,
+    *,
+    organization_id: UUID,
+    asset_file_id: UUID | None,
+    expected_prefix: str,
+) -> InstitutionalAssetFile | None:
+    if asset_file_id is None:
+        return None
+    file = await session.scalar(
+        select(InstitutionalAssetFile)
+        .join(InstitutionalAssetFile.asset)
+        .where(
+            InstitutionalAssetFile.id == asset_file_id,
+            InstitutionalAssetFile.asset.has(organization_id=organization_id),
+        )
+    )
+    if file is None:
+        raise HTTPException(status_code=422, detail="Arquivo institucional inválido")
+    if not file.mime_type.lower().startswith(expected_prefix):
+        label = "visual" if expected_prefix in {"image/", "video/"} else "áudio"
+        raise HTTPException(status_code=422, detail=f"O arquivo selecionado não é {label}")
+    return file
+
+
+async def _validate_visual_file(
+    session: AsyncSession, *, organization_id: UUID, asset_file_id: UUID | None
+) -> InstitutionalAssetFile | None:
+    if asset_file_id is None:
+        return None
+    file = await session.scalar(
+        select(InstitutionalAssetFile)
+        .where(InstitutionalAssetFile.id == asset_file_id)
+        .options(selectinload(InstitutionalAssetFile.asset))
+    )
+    if file is None or file.asset.organization_id != organization_id:
+        raise HTTPException(status_code=422, detail="Arquivo visual institucional inválido")
+    if not file.mime_type.lower().startswith(("image/", "video/")):
+        raise HTTPException(status_code=422, detail="A cena exige uma imagem ou um vídeo")
+    return file
+
+
+async def create_project(
+    session: AsyncSession, *, actor: ActorContext, data: AnimeProjectCreate
+) -> AnimeProject:
+    require_editor(actor)
+    await _validate_project_links(
+        session,
+        organization_id=actor.organization_id,
+        generation_project_id=data.generation_project_id,
+        rag_context_id=data.rag_context_id,
+        teacher_studio_draft_id=data.teacher_studio_draft_id,
+    )
+    project = AnimeProject(
+        organization_id=actor.organization_id,
+        created_by_user_id=actor.user_id,
+        **data.model_dump(),
+    )
+    session.add(project)
+    await session.flush()
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.project.created",
+        entity_type="anime_project",
+        entity_id=project.id,
+        details={"title": project.title, "style_preset_code": project.style_preset_code},
+    )
+    await session.commit()
+    return await get_project(session, organization_id=actor.organization_id, project_id=project.id)
+
+
+async def update_project(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    data: AnimeProjectUpdate,
+) -> AnimeProject:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    changes = data.model_dump(exclude_unset=True)
+    await _validate_project_links(
+        session,
+        organization_id=actor.organization_id,
+        generation_project_id=changes.get("generation_project_id"),
+        rag_context_id=changes.get("rag_context_id"),
+    )
+    if "status" in changes and changes["status"] == "approved":
+        require_reviewer(actor)
+        project.approved_by_user_id = actor.user_id
+        project.approved_at = utcnow()
+    elif changes:
+        project.approved_by_user_id = None
+        project.approved_at = None
+    for key, value in changes.items():
+        setattr(project, key, value)
+    if changes:
+        project.revision += 1
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.project.updated",
+        entity_type="anime_project",
+        entity_id=project.id,
+        details={"fields": sorted(changes)},
+    )
+    await session.commit()
+    return await get_project(session, organization_id=actor.organization_id, project_id=project.id)
+
+
+async def archive_project(
+    session: AsyncSession, *, actor: ActorContext, project_id: UUID
+) -> AnimeProject:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    project.status = "archived"
+    project.revision += 1
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.project.archived",
+        entity_type="anime_project",
+        entity_id=project.id,
+    )
+    await session.commit()
+    return project
+
+
+async def create_scene(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    data: AnimeSceneCreate,
+) -> AnimeScene:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    await _validate_visual_file(
+        session,
+        organization_id=actor.organization_id,
+        asset_file_id=data.visual_asset_file_id,
+    )
+    await _validate_comic_sources(
+        session,
+        organization_id=actor.organization_id,
+        source_comic_page_id=data.source_comic_page_id,
+        source_comic_panel_id=data.source_comic_panel_id,
+    )
+    scene = AnimeScene(
+        organization_id=actor.organization_id,
+        project_id=project.id,
+        created_by_user_id=actor.user_id,
+        **data.model_dump(),
+    )
+    project.revision += 1
+    project.status = "draft"
+    session.add(scene)
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Já existe uma cena nessa posição") from exc
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.scene.created",
+        entity_type="anime_scene",
+        entity_id=scene.id,
+        details={"project_id": str(project.id), "position": scene.position},
+    )
+    await session.commit()
+    await session.refresh(scene)
+    return scene
+
+
+async def _get_scene(session: AsyncSession, *, project: AnimeProject, scene_id: UUID) -> AnimeScene:
+    scene = await session.scalar(
+        select(AnimeScene).where(
+            AnimeScene.id == scene_id,
+            AnimeScene.project_id == project.id,
+            AnimeScene.organization_id == project.organization_id,
+        )
+    )
+    if scene is None:
+        raise HTTPException(status_code=404, detail="Cena não encontrada")
+    return scene
+
+
+async def update_scene(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    scene_id: UUID,
+    data: AnimeSceneUpdate,
+) -> AnimeScene:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    scene = await _get_scene(session, project=project, scene_id=scene_id)
+    changes = data.model_dump(exclude_unset=True)
+    if "visual_asset_file_id" in changes:
+        await _validate_visual_file(
+            session,
+            organization_id=actor.organization_id,
+            asset_file_id=changes["visual_asset_file_id"],
+        )
+    await _validate_comic_sources(
+        session,
+        organization_id=actor.organization_id,
+        source_comic_page_id=changes.get("source_comic_page_id", scene.source_comic_page_id),
+        source_comic_panel_id=changes.get("source_comic_panel_id", scene.source_comic_panel_id),
+    )
+    if changes.get("status") == "approved":
+        require_reviewer(actor)
+        scene.approved_by_user_id = actor.user_id
+        scene.approved_at = utcnow()
+    elif changes:
+        scene.approved_by_user_id = None
+        scene.approved_at = None
+    for key, value in changes.items():
+        setattr(scene, key, value)
+    if changes:
+        scene.revision += 1
+        project.revision += 1
+        project.status = "draft"
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.scene.updated",
+        entity_type="anime_scene",
+        entity_id=scene.id,
+        details={"project_id": str(project.id), "fields": sorted(changes)},
+    )
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Já existe uma cena nessa posição") from exc
+    await session.refresh(scene)
+    return scene
+
+
+async def delete_scene(
+    session: AsyncSession, *, actor: ActorContext, project_id: UUID, scene_id: UUID
+) -> None:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    scene = await _get_scene(session, project=project, scene_id=scene_id)
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.scene.deleted",
+        entity_type="anime_scene",
+        entity_id=scene.id,
+        details={"project_id": str(project.id), "position": scene.position},
+    )
+    project.revision += 1
+    project.status = "draft"
+    await session.delete(scene)
+    await session.commit()
+
+
+async def create_audio_track(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    data: AnimeAudioTrackCreate,
+) -> AnimeAudioTrack:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    if data.scene_id:
+        await _get_scene(session, project=project, scene_id=data.scene_id)
+    await _validate_asset_file(
+        session,
+        organization_id=actor.organization_id,
+        asset_file_id=data.asset_file_id,
+        expected_prefix="audio/",
+    )
+    track = AnimeAudioTrack(
+        organization_id=actor.organization_id,
+        project_id=project.id,
+        created_by_user_id=actor.user_id,
+        **data.model_dump(),
+    )
+    project.revision += 1
+    project.status = "draft"
+    session.add(track)
+    await session.flush()
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.audio.created",
+        entity_type="anime_audio_track",
+        entity_id=track.id,
+        details={"project_id": str(project.id), "kind": track.track_kind},
+    )
+    await session.commit()
+    await session.refresh(track)
+    return track
+
+
+async def _get_audio_track(
+    session: AsyncSession, *, project: AnimeProject, track_id: UUID
+) -> AnimeAudioTrack:
+    track = await session.scalar(
+        select(AnimeAudioTrack).where(
+            AnimeAudioTrack.id == track_id,
+            AnimeAudioTrack.project_id == project.id,
+            AnimeAudioTrack.organization_id == project.organization_id,
+        )
+    )
+    if track is None:
+        raise HTTPException(status_code=404, detail="Faixa de áudio não encontrada")
+    return track
+
+
+async def update_audio_track(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    track_id: UUID,
+    data: AnimeAudioTrackUpdate,
+) -> AnimeAudioTrack:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    track = await _get_audio_track(session, project=project, track_id=track_id)
+    changes = data.model_dump(exclude_unset=True)
+    if "scene_id" in changes and changes["scene_id"]:
+        await _get_scene(session, project=project, scene_id=changes["scene_id"])
+    if "asset_file_id" in changes:
+        await _validate_asset_file(
+            session,
+            organization_id=actor.organization_id,
+            asset_file_id=changes["asset_file_id"],
+            expected_prefix="audio/",
+        )
+    for key, value in changes.items():
+        setattr(track, key, value)
+    if changes:
+        project.revision += 1
+        project.status = "draft"
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.audio.updated",
+        entity_type="anime_audio_track",
+        entity_id=track.id,
+        details={"project_id": str(project.id), "fields": sorted(changes)},
+    )
+    await session.commit()
+    await session.refresh(track)
+    return track
+
+
+async def delete_audio_track(
+    session: AsyncSession, *, actor: ActorContext, project_id: UUID, track_id: UUID
+) -> None:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    track = await _get_audio_track(session, project=project, track_id=track_id)
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.audio.deleted",
+        entity_type="anime_audio_track",
+        entity_id=track.id,
+        details={"project_id": str(project.id)},
+    )
+    project.revision += 1
+    project.status = "draft"
+    await session.delete(track)
+    await session.commit()
+
+
+async def create_caption(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    data: AnimeCaptionCreate,
+) -> AnimeCaptionCue:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    if data.scene_id:
+        await _get_scene(session, project=project, scene_id=data.scene_id)
+    cue = AnimeCaptionCue(
+        organization_id=actor.organization_id,
+        project_id=project.id,
+        created_by_user_id=actor.user_id,
+        **data.model_dump(),
+    )
+    project.revision += 1
+    project.status = "draft"
+    session.add(cue)
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Ordem de legenda já utilizada") from exc
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.caption.created",
+        entity_type="anime_caption_cue",
+        entity_id=cue.id,
+        details={"project_id": str(project.id), "cue_order": cue.cue_order},
+    )
+    await session.commit()
+    await session.refresh(cue)
+    return cue
+
+
+async def _get_caption(
+    session: AsyncSession, *, project: AnimeProject, cue_id: UUID
+) -> AnimeCaptionCue:
+    cue = await session.scalar(
+        select(AnimeCaptionCue).where(
+            AnimeCaptionCue.id == cue_id,
+            AnimeCaptionCue.project_id == project.id,
+            AnimeCaptionCue.organization_id == project.organization_id,
+        )
+    )
+    if cue is None:
+        raise HTTPException(status_code=404, detail="Legenda não encontrada")
+    return cue
+
+
+async def update_caption(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    cue_id: UUID,
+    data: AnimeCaptionUpdate,
+) -> AnimeCaptionCue:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    cue = await _get_caption(session, project=project, cue_id=cue_id)
+    changes = data.model_dump(exclude_unset=True)
+    start_ms = changes.get("start_ms", cue.start_ms)
+    end_ms = changes.get("end_ms", cue.end_ms)
+    if end_ms <= start_ms:
+        raise HTTPException(status_code=422, detail="Fim da legenda deve ser posterior ao início")
+    if "scene_id" in changes and changes["scene_id"]:
+        await _get_scene(session, project=project, scene_id=changes["scene_id"])
+    for key, value in changes.items():
+        setattr(cue, key, value)
+    if changes:
+        project.revision += 1
+        project.status = "draft"
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.caption.updated",
+        entity_type="anime_caption_cue",
+        entity_id=cue.id,
+        details={"project_id": str(project.id), "fields": sorted(changes)},
+    )
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Ordem de legenda já utilizada") from exc
+    await session.refresh(cue)
+    return cue
+
+
+async def delete_caption(
+    session: AsyncSession, *, actor: ActorContext, project_id: UUID, cue_id: UUID
+) -> None:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    cue = await _get_caption(session, project=project, cue_id=cue_id)
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.caption.deleted",
+        entity_type="anime_caption_cue",
+        entity_id=cue.id,
+        details={"project_id": str(project.id)},
+    )
+    project.revision += 1
+    project.status = "draft"
+    await session.delete(cue)
+    await session.commit()
+
+
+def render_snapshot(project: AnimeProject, data: AnimeRenderCreate) -> dict[str, Any]:
+    return {
+        "project": {
+            "id": str(project.id),
+            "revision": project.revision,
+            "title": project.title,
+            "width": project.width,
+            "height": project.height,
+            "fps": project.fps,
+            "language": project.language,
+        },
+        "scenes": [
+            {
+                "id": str(scene.id),
+                "position": scene.position,
+                "title": scene.title,
+                "duration_ms": scene.duration_ms,
+                "visual_asset_file_id": (
+                    str(scene.visual_asset_file_id) if scene.visual_asset_file_id else None
+                ),
+                "transition_settings": scene.transition_settings,
+            }
+            for scene in sorted(project.scenes, key=lambda item: item.position)
+        ],
+        "audio_tracks": [
+            {
+                "id": str(track.id),
+                "kind": track.track_kind,
+                "asset_file_id": str(track.asset_file_id) if track.asset_file_id else None,
+                "start_ms": track.start_ms,
+                "duration_ms": track.duration_ms,
+                "trim_start_ms": track.trim_start_ms,
+                "volume": track.volume,
+                "fade_in_ms": track.fade_in_ms,
+                "fade_out_ms": track.fade_out_ms,
+                "is_muted": track.is_muted,
+            }
+            for track in project.audio_tracks
+        ],
+        "captions": [
+            {
+                "id": str(cue.id),
+                "language": cue.language,
+                "cue_order": cue.cue_order,
+                "start_ms": cue.start_ms,
+                "end_ms": cue.end_ms,
+                "text": cue.text,
+                "speaker": cue.speaker,
+                "kind": cue.cue_kind,
+            }
+            for cue in project.captions
+        ],
+        "settings": data.model_dump(exclude={"idempotency_key"}),
+    }
+
+
+async def request_render(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    data: AnimeRenderCreate,
+) -> AnimeRender:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    if not project.scenes:
+        raise HTTPException(
+            status_code=422, detail="Adicione ao menos uma cena antes de renderizar"
+        )
+    missing_visual = [scene.position for scene in project.scenes if not scene.visual_asset_file_id]
+    if missing_visual:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Cenas sem imagem ou vídeo: {', '.join(map(str, missing_visual))}",
+        )
+    snapshot = render_snapshot(project, data)
+    checksum = hashlib.sha256(
+        json.dumps(snapshot, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    key = data.idempotency_key or f"anime-render:{project.id}:{project.revision}:{checksum[:24]}"
+    existing_job = await session.scalar(
+        select(BackgroundJob).where(
+            BackgroundJob.organization_id == actor.organization_id,
+            BackgroundJob.idempotency_key == key,
+        )
+    )
+    if existing_job:
+        existing_render = await session.scalar(
+            select(AnimeRender).where(
+                AnimeRender.organization_id == actor.organization_id,
+                AnimeRender.background_job_id == existing_job.id,
+            )
+        )
+        if existing_render:
+            return existing_render
+
+    next_revision = (
+        int(
+            await session.scalar(
+                select(func.coalesce(func.max(AnimeRender.revision), 0)).where(
+                    AnimeRender.project_id == project.id
+                )
+            )
+            or 0
+        )
+        + 1
+    )
+    render = AnimeRender(
+        organization_id=actor.organization_id,
+        project_id=project.id,
+        revision=next_revision,
+        status="queued",
+        render_settings=snapshot["settings"],
+        source_snapshot=snapshot,
+        manifest_checksum=checksum,
+        requested_by_user_id=actor.user_id,
+    )
+    session.add(render)
+    await session.flush()
+    try:
+        job, created = await create_job(
+            session,
+            organization_id=actor.organization_id,
+            user_id=actor.user_id,
+            job_type="anime_render",
+            module_name="anime_studio",
+            entity_type="anime_render",
+            entity_id=render.id,
+            priority=60,
+            total_steps=6,
+            max_retries=2,
+            idempotency_key=key,
+            input_snapshot={
+                "render_id": str(render.id),
+                "project_id": str(project.id),
+                "manifest_checksum": checksum,
+            },
+        )
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not created:
+        await session.delete(render)
+        existing_render = await session.scalar(
+            select(AnimeRender).where(AnimeRender.background_job_id == job.id)
+        )
+        if existing_render:
+            return existing_render
+        raise HTTPException(status_code=409, detail="Renderização idempotente inconsistente")
+    render.background_job_id = job.id
+    project.status = "rendering"
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.render.requested",
+        entity_type="anime_render",
+        entity_id=render.id,
+        details={"project_id": str(project.id), "revision": render.revision, "job_id": str(job.id)},
+    )
+    await session.commit()
+    await mark_queued(session, job)
+    await session.commit()
+    await session.refresh(render)
+    return render
+
+
+async def review_render(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    render_id: UUID,
+    data: AnimeRenderReview,
+) -> AnimeRender:
+    require_reviewer(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id, project_id=project_id, for_update=True
+    )
+    render = await session.scalar(
+        select(AnimeRender).where(
+            AnimeRender.id == render_id,
+            AnimeRender.project_id == project.id,
+            AnimeRender.organization_id == actor.organization_id,
+        )
+    )
+    if render is None:
+        raise HTTPException(status_code=404, detail="Renderização não encontrada")
+    if render.status not in {"in_review", "approved", "rejected"}:
+        raise HTTPException(
+            status_code=409, detail="A renderização ainda não está pronta para revisão"
+        )
+    render.review_decision = data.decision
+    render.review_notes = data.notes
+    render.reviewed_by_user_id = actor.user_id
+    render.reviewed_at = utcnow()
+    render.status = data.decision
+    project.status = "ready" if data.decision == "approved" else "rejected"
+    if render.output_asset_id is not None:
+        output_asset = await session.scalar(
+            select(InstitutionalAsset).where(
+                InstitutionalAsset.id == render.output_asset_id,
+                InstitutionalAsset.organization_id == actor.organization_id,
+            )
+        )
+        if output_asset is not None:
+            output_asset.status = (
+                InstitutionalAssetStatus.APPROVED
+                if data.decision == "approved"
+                else InstitutionalAssetStatus.REJECTED
+            )
+            output_asset.approved_by_user_id = (
+                actor.user_id if data.decision == "approved" else None
+            )
+            session.add(
+                InstitutionalAssetAudit(
+                    organization_id=actor.organization_id,
+                    asset_id=output_asset.id,
+                    actor_user_id=actor.user_id,
+                    action=f"anime_render_{data.decision}",
+                    details={"anime_render_id": str(render.id), "notes": data.notes},
+                )
+            )
+    if data.decision == "approved":
+        project.approved_by_user_id = actor.user_id
+        project.approved_at = utcnow()
+    else:
+        project.approved_by_user_id = None
+        project.approved_at = None
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action=f"anime.render.{data.decision}",
+        entity_type="anime_render",
+        entity_id=render.id,
+        details={"project_id": str(project.id), "revision": render.revision, "notes": data.notes},
+    )
+    await session.commit()
+    await session.refresh(render)
+    return render

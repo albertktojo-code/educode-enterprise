@@ -1,0 +1,18 @@
+EduCode Enterprise 2.0 — Sprint 12.1
+
+Validações executadas em 23/07/2026:
+- Python compileall: aprovado
+- Modelos SQLAlchemy carregados: 106 tabelas
+- Novas tabelas AI Fabric avançado: 6
+- OpenAPI carregado: 244 caminhos
+- Rotas /ai/advanced: 10 caminhos
+- OpenAPI sem operation IDs duplicados
+- Testes diretos do novo serviço: 4 aprovados
+- TypeScript npx tsc --noEmit: aprovado
+- Migration 0022: sintaxe Python aprovada
+- Migration sem novos enums PostgreSQL
+
+Limitações do ambiente:
+- Regressão pytest completa não executada porque pwdlib, asyncpg e pgvector não estavam disponíveis no índice de pacotes do runtime.
+- Docker/PostgreSQL real não disponíveis.
+- Alembic upgrade deve ser confirmado no ambiente Docker do usuário.

@@ -1,0 +1,58 @@
+from __future__ import annotations
+
+from enum import StrEnum
+
+
+class RecordStatus(StrEnum):
+    DRAFT = "DRAFT"
+    PUBLISHED = "PUBLISHED"
+    DEPRECATED = "DEPRECATED"
+    ARCHIVED = "ARCHIVED"
+
+
+class InterventionOutcome(StrEnum):
+    IMPROVED = "IMPROVED"
+    STABLE = "STABLE"
+    DECLINED = "DECLINED"
+    INCONCLUSIVE = "INCONCLUSIVE"
+
+
+class RecommendationAction(StrEnum):
+    REPEAT_INTERVENTION = "REPEAT_INTERVENTION"
+    TRY_ALTERNATIVE = "TRY_ALTERNATIVE"
+    ADVANCE = "ADVANCE"
+    REVIEW_PREREQUISITE = "REVIEW_PREREQUISITE"
+    TEACHER_REVIEW = "TEACHER_REVIEW"
+    COLLECT_MORE_EVIDENCE = "COLLECT_MORE_EVIDENCE"
+
+
+class ModelScope(StrEnum):
+    GLOBAL = "GLOBAL"
+    ORGANIZATION = "ORGANIZATION"
+    SUBJECT = "SUBJECT"
+    CLASSROOM = "CLASSROOM"
+    LEARNING_PATH = "LEARNING_PATH"
+
+
+class SimulationStatus(StrEnum):
+    CREATED = "CREATED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class ExperimentStatus(StrEnum):
+    DRAFT = "DRAFT"
+    RUNNING = "RUNNING"
+    PAUSED = "PAUSED"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
+
+class AssignmentStrategy(StrEnum):
+    DETERMINISTIC_HASH = "DETERMINISTIC_HASH"
+    MANUAL = "MANUAL"
+
+
+class MetricDirection(StrEnum):
+    HIGHER_IS_BETTER = "HIGHER_IS_BETTER"
+    LOWER_IS_BETTER = "LOWER_IS_BETTER"

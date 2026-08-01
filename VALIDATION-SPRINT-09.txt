@@ -1,0 +1,32 @@
+EduCode Enterprise 2.0 — Sprint 09
+Validação executada no ambiente de geração
+
+APROVADO
+- análise sintática e compileall do backend
+- 60 testes automatizados aprovados com dependências de infraestrutura substituídas por stubs locais de validação
+- OpenAPI carregada com 144 caminhos
+- 26 caminhos de publicação/estudante identificados
+- cadeia Alembic validada até 0014_learning_delivery
+- migration completa compilada em SQL PostgreSQL offline
+- criação idempotente dos enums PostgreSQL verificada
+- TypeScript/TSX dos arquivos da Sprint 09 analisado sintaticamente
+- verificação de tipos dos novos componentes com stubs locais de React
+- package-lock.json usa o registro público padrão
+- snapshot do estudante verificado sem gabarito e sem materiais exclusivos do professor
+
+LIMITAÇÕES DO AMBIENTE
+- Docker e PostgreSQL reais não estavam disponíveis para executar a migration online
+- npm ci não concluiu dentro do limite disponível; build Vite e ESLint devem ser confirmados no Docker
+- Ruff e mypy não puderam ser reinstalados pelo índice de pacotes disponível; execute-os no contêiner backend
+
+COMANDOS RECOMENDADOS NO AMBIENTE DO USUÁRIO
+
+docker compose exec backend pytest -q
+docker compose exec backend ruff check app tests alembic
+docker compose exec backend mypy app
+docker compose exec backend alembic current
+docker compose exec frontend npm run build
+docker compose exec frontend npm run lint
+
+HEAD ESPERADO
+0014_learning_delivery

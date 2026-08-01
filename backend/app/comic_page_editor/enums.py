@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+from enum import StrEnum
+
+
+class LayoutStatus(StrEnum):
+    DRAFT = "DRAFT"
+    PUBLISHED = "PUBLISHED"
+    ARCHIVED = "ARCHIVED"
+
+
+class PageStatus(StrEnum):
+    DRAFT = "DRAFT"
+    READY = "READY"
+    GENERATING = "GENERATING"
+    GENERATED = "GENERATED"
+    PARTIAL = "PARTIAL"
+    FAILED = "FAILED"
+
+
+class PanelShape(StrEnum):
+    RECTANGLE = "RECTANGLE"
+    SQUARE = "SQUARE"
+    CIRCLE = "CIRCLE"
+    ROUNDED = "ROUNDED"
+
+
+class TextLayerType(StrEnum):
+    SPEECH = "SPEECH"
+    THOUGHT = "THOUGHT"
+    CAPTION = "CAPTION"
+    NARRATION = "NARRATION"
+    SOUND_EFFECT = "SOUND_EFFECT"
+
+
+class GenerationStatus(StrEnum):
+    QUEUED = "QUEUED"
+    PLANNING = "PLANNING"
+    VALIDATING = "VALIDATING"
+    STRUCTURING = "STRUCTURING"
+    GENERATING_IMAGES = "GENERATING_IMAGES"
+    ASSEMBLING = "ASSEMBLING"
+    ACCESSIBILITY_CHECK = "ACCESSIBILITY_CHECK"
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_ISSUES = "COMPLETED_WITH_ISSUES"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class StepStatus(StrEnum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"

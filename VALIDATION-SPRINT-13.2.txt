@@ -1,0 +1,33 @@
+EduCode Enterprise 2.0 — Validação da Sprint 13.2
+Data: 2026-07-24
+
+Escopo validado
+- Releases versionadas, artefatos imutáveis e etapas de implantação.
+- Aprovações técnicas, segurança, negócio e produção.
+- Validação offline de migrations e detecção de SQL destrutivo.
+- Objetivos RPO/RTO e restauração seletiva com prévia de impacto.
+- Manutenção dinâmica e modo somente leitura via Redis.
+- Drenagem e retomada de workers.
+- Inventário e rotação auditável de segredos.
+- Compose de homologação/produção, proxy HTTPS e workflow de release.
+
+Resultados
+- Python compileall: aprovado.
+- Pytest: 123 testes aprovados.
+- OpenAPI: 307 caminhos e 382 operações.
+- Operation IDs duplicados: 0.
+- Rotas da Sprint 13.2: 15 caminhos.
+- SQLAlchemy: 140 tabelas.
+- Novas tabelas: 9.
+- Alembic: 26 revisions, um único head.
+- Head: 0026_release_recovery.
+- Revision IDs maiores que 32 caracteres: 0.
+- SQL PostgreSQL offline: 4.016 linhas.
+- TypeScript/TSX: 77 arquivos analisados sintaticamente, 0 erros.
+- YAML/JSON/TOML: arquivos principais válidos.
+
+Limitações do ambiente
+- Docker, PostgreSQL e Redis reais não estavam disponíveis neste runtime.
+- A regressão Python utilizou stubs externos apenas para redis, asyncpg, pgvector e pwdlib; nenhum stub foi incluído no pacote.
+- npm ci não concluiu no limite do ambiente, portanto o build Vite e ESLint devem ser confirmados no Docker ou CI.
+- Restauração seletiva nesta sprint cria plano, dependências e prévia de impacto; a mutação definitiva exige confirmação e implementação institucional específica para cada entidade.

@@ -1,0 +1,59 @@
+EDUCODE ENTERPRISE 2.0 — VALIDAÇÃO DA SPRINT 13.3
+Data da validação: 24/07/2026
+
+ESCOPO VALIDADO
+- Infraestrutura distribuída e inventário de clusters.
+- Object storage local e S3 compatível.
+- MinIO opcional no Docker Compose.
+- Replicação de storage e metadados de continuidade.
+- Planos e exercícios de disaster recovery.
+- Solicitação e aprovação controlada de failover/failback.
+- GitOps com Argo CD e overlays de homologação/produção.
+- Helm chart com HPA, PDB, NetworkPolicy, Ingress TLS e CronJob de backup.
+- Políticas de autoscaling e recomendação de capacidade.
+- Interface administrativa /admin/infraestrutura.
+
+RESULTADOS
+- Testes pytest: 131 aprovados.
+- Python compileall: aprovado.
+- SQLAlchemy: 149 tabelas carregadas.
+- OpenAPI: 324 caminhos e 405 operações.
+- Rotas de infraestrutura/continuidade: 17 caminhos.
+- operationId OpenAPI duplicado: 0.
+- Alembic: 27 revisions e um único head.
+- Head esperado: 0027_infra_continuity.
+- IDs Alembic acima de 32 caracteres: 0.
+- SQL PostgreSQL offline: 4.314 linhas.
+- TypeScript/TSX: 77 arquivos verificados sintaticamente.
+- YAML, JSON e TOML: válidos.
+- Docker Compose: 13 serviços e 11 volumes.
+- package-lock.json: 203 URLs resolvidas no registro público registry.npmjs.org.
+- Testes unitários de object storage, traversal, capacidade, DR e renderização GitOps/HPA: aprovados.
+
+SEGURANÇA E GOVERNANÇA
+- Rotas administrativas isoladas por organização.
+- Aprovação de failover/failback restrita ao operador global.
+- Failover automático desativado por padrão.
+- Credenciais S3 não persistidas nos registros administrativos.
+- Chaves de object storage normalizadas e protegidas contra path traversal.
+- Kubernetes configurado com execução sem root, seccomp e remoção de capabilities.
+- PostgreSQL e Redis tratados como dependências externas no chart de produção.
+
+LIMITAÇÕES DO AMBIENTE DE GERAÇÃO
+- Docker, Helm, kubectl e kustomize não estavam instalados; os manifests não foram aplicados em cluster real.
+- O ciclo real de MinIO/S3, replicação, failover e restore deve ser validado em ambiente descartável de homologação.
+- O npm ci não concluiu dentro do limite do ambiente. O build completo do Vite e o ESLint devem ser executados no Docker ou no pipeline CI.
+- A regressão Python usou stubs externos apenas para bibliotecas indisponíveis no runtime de validação. Nenhum stub foi incluído no pacote.
+- A Sprint prepara alta disponibilidade da aplicação; HA de PostgreSQL, Redis e storage depende da infraestrutura institucional ou de serviços gerenciados.
+
+COMANDOS DE VALIDAÇÃO RECOMENDADOS NO AMBIENTE DO USUÁRIO
+1. docker compose up -d db redis
+2. docker compose run --rm backend python -m app.operations.preflight
+3. docker compose run --rm backend python -m app.operations.migration_check --json
+4. docker compose run --rm backend alembic upgrade head
+5. docker compose up -d --build
+6. docker compose run --rm backend alembic current
+7. docker compose --profile cloud up -d minio minio-init
+8. powershell -ExecutionPolicy Bypass -File scripts/k8s-preflight.ps1
+
+Não executar docker compose down -v, pois o comando remove volumes persistentes.

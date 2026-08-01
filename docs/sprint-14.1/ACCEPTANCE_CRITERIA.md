@@ -1,0 +1,22 @@
+# Critérios de aceitação — Sprint 14.1
+
+- CA01: cadastrar até cinco níveis de pistas por recurso ou questão.
+- CA02: selecionar apenas pistas publicadas, elegíveis e ainda não utilizadas.
+- CA03: registrar pista, tentativa, estudante, motivo e resultado posterior.
+- CA04: calcular próxima revisão de forma determinística e explicável.
+- CA05: manter agenda de revisão por estudante e habilidade.
+- CA06: gerar feedback conforme tipo de erro e domínio.
+- CA07: calcular dificuldade individual por habilidade, limitando saltos bruscos.
+- CA08: calcular dificuldade observada somente com dados de execução.
+- CA09: classificar divergência entre dificuldade prevista e observada.
+- CA10: criar regras de avanço sem alteração de código.
+- CA11: tornar versões publicadas das regras imutáveis no fluxo institucional.
+- CA12: registrar decisões de progressão e sua aprovação.
+- CA13: gerar versão acessível vinculada ao original.
+- CA14: bloquear publicação sem revisão quando houver possível alteração pedagógica.
+- CA15: filtrar todas as consultas por organização.
+- CA16: respeitar RBAC docente, administrativo e estudantil.
+- CA17: emitir eventos de auditoria.
+- CA18: não alterar notas ou avaliações automaticamente.
+- CA19: preservar compatibilidade com Docker e com a infraestrutura da Sprint 13.3.
+- CA20: passar nos testes automatizados fornecidos.

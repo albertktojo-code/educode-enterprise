@@ -1,0 +1,28 @@
+{{- if .Values.workers.autoscaling.enabled }}
+{{- range $name, $worker := .Values.workers }}
+{{- if and (kindIs "map" $worker) (hasKey $worker "queue") }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "educode.fullname" $ }}-worker-{{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "educode.fullname" $ }}-worker-{{ $name }}
+  minReplicas: {{ $.Values.workers.autoscaling.minReplicas }}
+  maxReplicas: {{ $.Values.workers.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $.Values.workers.autoscaling.targetCPUUtilizationPercentage }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+---
+{{- end }}
+{{- end }}
+{{- end }}

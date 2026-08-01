@@ -1,0 +1,12 @@
+Hotfix Sprint 08 — validação da migration 0013
+
+- Python py_compile: aprovado
+- SQL PostgreSQL offline da migration 0013: 153 linhas
+- CREATE TYPE studio_creation_mode: 1 ocorrência
+- CREATE TYPE studio_material_type: 1 ocorrência
+- CREATE TYPE studio_draft_status: 1 ocorrência
+- CREATE TYPE pedagogical_package_status: 1 ocorrência
+- CREATE TYPE package_material_status: 1 ocorrência
+- CREATE TYPE publication_readiness: 1 ocorrência
+- create_type=False aplicado a todos os enums da migration
+- downgrade remove tabelas antes de remover os enums

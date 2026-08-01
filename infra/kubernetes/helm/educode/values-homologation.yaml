@@ -1,0 +1,7 @@
+global: {environment: homologation}
+ingress: {host: homolog.educode.example.org}
+backend: {replicas: 2}
+frontend: {replicas: 2}
+storage:
+  provider: s3
+  objectStorage: {endpoint: https://minio-homolog.example.org, bucket: educode-homolog, region: us-east-1, prefix: educode, useSSL: true}

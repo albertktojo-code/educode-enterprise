@@ -1,0 +1,51 @@
+name: EduCode Infrastructure Validation
+
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - 'compose*.yaml'
+      - 'docker-compose.yml'
+      - '.github/workflows/infrastructure.yml'
+  workflow_dispatch:
+
+jobs:
+  helm-and-gitops:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with: {version: v3.16.4}
+      - name: Helm lint
+        run: helm lint infra/kubernetes/helm/educode
+      - name: Render homologation
+        run: |
+          mkdir -p rendered
+          helm template educode-homolog infra/kubernetes/helm/educode -f infra/kubernetes/helm/educode/values-homologation.yaml > rendered/homolog.yaml
+      - name: Render production
+        run: helm template educode-production infra/kubernetes/helm/educode -f infra/kubernetes/helm/educode/values-production.yaml > rendered/production.yaml
+      - name: Validate rendered manifests
+        uses: docker://ghcr.io/yannh/kubeconform:v0.8.0
+        with:
+          entrypoint: /kubeconform
+          args: -strict -summary -ignore-missing-schemas rendered infra/argocd
+
+  compose-cloud-profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose --profile cloud config >/dev/null
+      - run: docker compose -f docker-compose.yml -f compose.homolog.yaml config >/dev/null
+      - run: docker compose -f docker-compose.yml -f compose.production.yaml config >/dev/null
+
+  scan-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: infra
+          severity: CRITICAL,HIGH
+          exit-code: '1'

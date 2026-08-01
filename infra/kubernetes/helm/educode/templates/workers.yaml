@@ -1,0 +1,35 @@
+{{- range $name, $worker := .Values.workers }}
+{{- if and (kindIs "map" $worker) (hasKey $worker "queue") }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "educode.fullname" $ }}-worker-{{ $name }}
+  labels:
+    {{- include "educode.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: worker-{{ $name }}
+spec:
+  replicas: {{ $worker.replicas }}
+  selector:
+    matchLabels: {app.kubernetes.io/instance: {{ $.Release.Name }}, app.kubernetes.io/component: worker-{{ $name }}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/instance: {{ $.Release.Name }}, app.kubernetes.io/component: worker-{{ $name }}}
+    spec:
+      serviceAccountName: {{ $.Values.serviceAccount.name }}
+      terminationGracePeriodSeconds: 330
+      securityContext: {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: worker
+          image: "{{ $.Values.images.backend.repository }}:{{ $.Values.images.backend.tag }}"
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          args: ["python", "-m", "app.workers.main", "--queue", "{{ $worker.queue }}", "--name", "k8s-worker-{{ $name }}"]
+          envFrom:
+            - configMapRef: {name: {{ $.Values.global.configMapName }}}
+            - secretRef: {name: {{ $.Values.global.existingSecret }}}
+          securityContext: {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
+          resources: {{- toYaml $.Values.workers.resources | nindent 12 }}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 2Gi}}]
+---
+{{- end }}
+{{- end }}

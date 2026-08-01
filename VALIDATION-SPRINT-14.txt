@@ -1,0 +1,41 @@
+EDUCODE ENTERPRISE 2.0 — SPRINT 14
+RELATÓRIO DE VALIDAÇÃO
+Data: 27/07/2026
+
+Escopo validado
+- Perfis adaptativos individuais.
+- Estados de domínio por habilidade BNCC e pilar de Pensamento Computacional.
+- Cálculo determinístico e versionado de domínio, confiança, recência e consistência.
+- Pré-requisitos entre habilidades e identificação de lacunas anteriores.
+- Recomendações explicáveis com evidências e revisão obrigatória do professor.
+- Trilhas individuais, por turma e por grupos pedagógicos temporários.
+- Critérios de avanço, conclusão de etapas e revisão espaçada.
+- Área do professor e área Minha trilha do estudante.
+- Auditoria adaptativa e integração com avaliações, Analytics e AI Fabric.
+
+Resultados
+- Pytest: 139 testes aprovados.
+- Python compileall: aprovado.
+- SQLAlchemy: 162 tabelas carregadas.
+- Novas tabelas adaptativas: 13.
+- OpenAPI: 344 caminhos e 429 operações.
+- Rotas adaptativas: 20 caminhos.
+- IDs OpenAPI duplicados: zero.
+- Alembic: 28 revisions e um único head.
+- Head: 0028_adaptive_learning.
+- Revision IDs acima de 32 caracteres: zero.
+- SQL PostgreSQL offline: 4.713 linhas.
+- TypeScript/TSX: 82 arquivos de implementação analisados sintaticamente, zero erros.
+- Verificação TypeScript estrita dos arquivos novos da Sprint 14: aprovada.
+- JSON, TOML e YAML concretos: válidos.
+- Docker Compose: 13 serviços e 11 volumes.
+- package-lock.json: 203 dependências resolvidas exclusivamente em registry.npmjs.org.
+
+Limitações do ambiente de geração
+- Docker, PostgreSQL, Redis, MinIO, Helm e Kubernetes reais não estavam disponíveis.
+- O npm ci não concluiu dentro do limite do ambiente; o build completo Vite e o ESLint devem ser confirmados no Docker ou no pipeline CI.
+- A regressão Python utilizou stubs externos apenas para dependências indisponíveis no runtime de validação. Nenhum stub foi incluído no pacote.
+- A migration foi validada por geração SQL PostgreSQL offline; a aplicação em banco persistente deve ser confirmada em homologação.
+
+Resultado final
+APROVADO PARA VALIDAÇÃO EM DOCKER/HOMOLOGAÇÃO.
