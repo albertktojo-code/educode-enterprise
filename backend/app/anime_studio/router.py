@@ -19,6 +19,8 @@ from app.anime_studio.schemas import (
     AnimeProjectRead,
     AnimeProjectSummary,
     AnimeProjectUpdate,
+    AnimePublicationCreate,
+    AnimePublicationRead,
     AnimeRenderCreate,
     AnimeRenderRead,
     AnimeRenderReview,
@@ -41,9 +43,11 @@ from app.anime_studio.services import (
     delete_caption,
     delete_scene,
     get_project,
+    get_project_publication,
     import_comic_storyboard,
     list_media_generations,
     list_projects,
+    publish_project,
     reorder_timeline,
     request_media_generation,
     request_render,
@@ -359,3 +363,22 @@ async def post_render_restore(
         project_id=project_id,
         render_id=render_id,
     )
+
+
+@router.post("/projects/{project_id}/publish", response_model=AnimePublicationRead)
+async def post_project_publication(
+    project_id: UUID,
+    data: AnimePublicationCreate,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+):
+    return await publish_project(session, actor=actor, project_id=project_id, data=data)
+
+
+@router.get("/publications/{project_id}", response_model=AnimePublicationRead)
+async def get_publication(
+    project_id: UUID,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+):
+    return await get_project_publication(session, actor=actor, project_id=project_id)

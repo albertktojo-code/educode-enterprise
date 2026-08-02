@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.anime_studio.media_schemas import AnimeMediaUploadRead
 from app.anime_studio.models import AnimeProject
-from app.anime_studio.services import require_editor
+from app.anime_studio.services import get_project_publication, require_editor
 from app.anime_studio.storage import AnimeMediaStorage, InvalidAnimeMediaError
 from app.api.actor_context import ActorContext, get_project_session, resolve_actor_context
 from app.core.config import get_settings
@@ -174,6 +174,36 @@ async def download_media(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Mídia não encontrada")
+    return FileResponse(
+        storage.resolve(row.storage_key),
+        media_type=row.mime_type,
+        filename=row.file_name,
+        content_disposition_type="inline",
+    )
+
+
+@router.get("/publications/{project_id}/media")
+async def stream_publication(
+    project_id: UUID,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+) -> FileResponse:
+    publication = await get_project_publication(
+        session,
+        actor=actor,
+        project_id=project_id,
+    )
+    row = await session.scalar(
+        select(InstitutionalAssetFile)
+        .join(InstitutionalAsset)
+        .where(
+            InstitutionalAssetFile.id == publication.asset_file_id,
+            InstitutionalAsset.organization_id == actor.organization_id,
+            InstitutionalAsset.status == InstitutionalAssetStatus.PUBLISHED,
+        )
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Vídeo publicado não encontrado")
     return FileResponse(
         storage.resolve(row.storage_key),
         media_type=row.mime_type,

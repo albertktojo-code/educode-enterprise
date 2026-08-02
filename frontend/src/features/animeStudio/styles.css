@@ -422,6 +422,11 @@
 .anime-render-comparison .anime-media-placeholder { min-height: 180px; max-height: 260px; border-radius: 10px; background: #05040b; }
 .anime-render-comparison > p { margin: 0; color: var(--anime-muted); font-size: .8rem; }
 .anime-governance-note { margin: 0; color: var(--anime-muted); font-size: .75rem; line-height: 1.5; text-align: center; }
+.anime-publication-form { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--anime-line); }
+.anime-publication-form fieldset { display: grid; gap: 7px; max-height: 160px; margin: 0; padding: 10px; overflow-y: auto; border: 1px solid var(--anime-line); border-radius: 11px; }
+.anime-publication-form legend { padding: 0 5px; color: #ddd6fe; font-size: .72rem; font-weight: 800; }
+.anime-publication-form small { color: var(--anime-muted); line-height: 1.45; }
+.anime-publication-status { margin: 0; padding: 9px; border-radius: 9px; color: #a7f3d0; background: rgba(16,185,129,.12); font-size: .74rem; }
 
 .anime-welcome { display: grid; min-height: 580px; place-items: center; align-content: center; gap: 13px; text-align: center; }
 .anime-welcome h2 { max-width: 700px; margin: 0; font-size: clamp(2rem, 5vw, 4rem); letter-spacing: -.05em; }

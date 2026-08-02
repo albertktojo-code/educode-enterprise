@@ -158,6 +158,24 @@ def test_render_versions_reuse_snapshots_jobs_and_human_approval() -> None:
     assert '@router.post("/jobs/{job_id}/retry"' in operations
 
 
+def test_publication_reuses_approved_render_assets_and_classrooms() -> None:
+    services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
+    router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")
+    media_router = (BACKEND / "app/anime_studio/media_router.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'render.status != "approved"' in services
+    assert '"publication": manifest' in services
+    assert "Classroom.organization_id == actor.organization_id" in services
+    assert "ClassroomEnrollment.user_id == actor.user_id" in services
+    assert "InstitutionalAssetStatus.PUBLISHED" in services
+    assert 'action="anime.project.published"' in services
+    assert '"/projects/{project_id}/publish"' in router
+    assert '"/publications/{project_id}"' in router
+    assert '"/publications/{project_id}/media"' in media_router
+
+
 def test_timeline_editor_reuses_canonical_scene_crud_and_audit() -> None:
     services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
     router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")

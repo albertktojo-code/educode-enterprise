@@ -14,10 +14,12 @@ import {
 import type {
   AnimeAudioTrack,
   AnimeCaptionCue,
+  AnimeClassroom,
   AnimeMediaGeneration,
   AnimeMediaGenerationKind,
   AnimeProject,
   AnimeProjectSummary,
+  AnimePublication,
   AnimeRender,
   AnimeRenderJob,
   AnimeScene,
@@ -272,6 +274,7 @@ export function AnimeStudioPage() {
   const [renderJobs, setRenderJobs] = useState<Record<string, AnimeRenderJob>>({})
   const [selectedRenderId, setSelectedRenderId] = useState<string | null>(null)
   const [comparisonRenderId, setComparisonRenderId] = useState<string | null>(null)
+  const [classrooms, setClassrooms] = useState<AnimeClassroom[]>([])
 
   const loadProjects = useCallback(async () => {
     const rows = await animeStudioApi.listProjects()
@@ -295,7 +298,7 @@ export function AnimeStudioPage() {
 
   useEffect(() => {
     setLoading(true)
-    void loadProjects()
+    void Promise.all([loadProjects(), animeStudioApi.listClassrooms().then(setClassrooms)])
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Falha ao carregar produções'))
       .finally(() => setLoading(false))
   }, [loadProjects])
@@ -726,6 +729,23 @@ export function AnimeStudioPage() {
     }, `Versão v${render.revision} restaurada como versão ativa.`)
   }
 
+  async function publishProject(data: FormData) {
+    if (!project) return
+    const classroomIds = data.getAll('classroom_ids').map(String)
+    if (!classroomIds.length) {
+      setError('Selecione ao menos uma turma para publicar.')
+      return
+    }
+    await execute(async () => {
+      await animeStudioApi.publishProject(project.id, {
+        classroom_ids: classroomIds,
+        include_captions: data.get('include_captions') === 'on',
+        include_transcript: data.get('include_transcript') === 'on',
+        include_audio_description: data.get('include_audio_description') === 'on',
+      })
+    }, 'Versão aprovada publicada para as turmas selecionadas.')
+  }
+
   if (loading && !project && projects.length === 0) {
     return (
       <div className="anime-loading" role="status" aria-live="polite">
@@ -1084,7 +1104,7 @@ export function AnimeStudioPage() {
                   {selectedRender?.status === 'in_review' ? <div className="anime-review-actions"><div><strong>Decisão humana obrigatória</strong><p>Assista ao vídeo completo antes de aprovar a publicação.</p></div><button type="button" className="anime-button ghost danger" onClick={() => void reviewRender(selectedRender, 'rejected')} disabled={busy}>Solicitar ajustes</button><button type="button" className="anime-button primary" onClick={() => void reviewRender(selectedRender, 'approved')} disabled={busy}>Aprovar versão</button></div> : null}
                   {project.renders.length > 1 ? <section className="anime-render-comparison"><header><div><span className="anime-eyebrow">Comparação</span><h2>Conferir duas versões</h2></div><select aria-label="Versão para comparar" value={comparisonRenderId ?? ''} onChange={(event) => setComparisonRenderId(event.target.value || null)}><option value="">Selecione outra versão</option>{project.renders.filter((render) => render.id !== selectedRender?.id).map((render) => <option value={render.id} key={render.id}>Versão {render.revision}</option>)}</select></header>{comparisonRender ? <div><article><strong>v{selectedRender?.revision}</strong><SecureMedia fileId={selectedRender?.output_asset_file_id ?? null} title={`Versão ${selectedRender?.revision}`} controls /></article><article><strong>v{comparisonRender.revision}</strong><SecureMedia fileId={comparisonRender.output_asset_file_id} title={`Versão ${comparisonRender.revision}`} controls /></article></div> : <p>Escolha uma versão no campo acima para comparar os previews lado a lado.</p>}</section> : null}
                 </div>
-                <aside className="anime-render-history"><header><span className="anime-eyebrow">Histórico imutável</span><h2>Versões</h2></header>{project.renders.length ? <ol>{[...project.renders].sort((a, b) => b.revision - a.revision).map((render) => { const job = render.background_job_id ? renderJobs[render.background_job_id] : undefined; const isActive = String(project.production_notes.active_render_id ?? '') === render.id; return <li className={`${selectedRender?.id === render.id ? 'is-selected' : ''}${isActive ? ' is-active' : ''}`} key={render.id}><button type="button" className="anime-render-version" onClick={() => setSelectedRenderId(render.id)}><span>v{render.revision}</span><div><strong>{statusLabels[render.status] ?? render.status}{isActive ? ' · ativa' : ''}</strong><small>{job?.current_step ?? new Date(render.created_at).toLocaleString('pt-BR')}</small>{job ? <div className="anime-progress"><i style={{ width: `${job.progress_percent}%` }} /></div> : null}</div><em>{formatDuration(render.duration_ms)}</em></button><div className="anime-render-version-actions">{render.status === 'failed' && render.background_job_id ? <button type="button" className="anime-button ghost" disabled={busy} onClick={() => void retryRender(render)}>Reprocessar</button> : null}{render.status === 'approved' && !isActive ? <button type="button" className="anime-button ghost" disabled={busy} onClick={() => void restoreRender(render)}>Restaurar</button> : null}</div></li> })}</ol> : <div className="anime-empty-state compact"><span aria-hidden="true">▶</span><p>O primeiro render aparecerá aqui.</p></div>}<button type="button" className="anime-button primary full" onClick={() => void requestRender()} disabled={busy || !project.scenes.length || project.status === 'rendering'}>Gerar novo preview</button><p className="anime-governance-note">A IA pode ajudar na criação, mas nenhuma versão é publicada sem aprovação docente.</p></aside>
+                <aside className="anime-render-history"><header><span className="anime-eyebrow">Histórico imutável</span><h2>Versões</h2></header>{project.renders.length ? <ol>{[...project.renders].sort((a, b) => b.revision - a.revision).map((render) => { const job = render.background_job_id ? renderJobs[render.background_job_id] : undefined; const isActive = String(project.production_notes.active_render_id ?? '') === render.id; return <li className={`${selectedRender?.id === render.id ? 'is-selected' : ''}${isActive ? ' is-active' : ''}`} key={render.id}><button type="button" className="anime-render-version" onClick={() => setSelectedRenderId(render.id)}><span>v{render.revision}</span><div><strong>{statusLabels[render.status] ?? render.status}{isActive ? ' · ativa' : ''}</strong><small>{job?.current_step ?? new Date(render.created_at).toLocaleString('pt-BR')}</small>{job ? <div className="anime-progress"><i style={{ width: `${job.progress_percent}%` }} /></div> : null}</div><em>{formatDuration(render.duration_ms)}</em></button><div className="anime-render-version-actions">{render.status === 'failed' && render.background_job_id ? <button type="button" className="anime-button ghost" disabled={busy} onClick={() => void retryRender(render)}>Reprocessar</button> : null}{render.status === 'approved' && !isActive ? <button type="button" className="anime-button ghost" disabled={busy} onClick={() => void restoreRender(render)}>Restaurar</button> : null}</div></li> })}</ol> : <div className="anime-empty-state compact"><span aria-hidden="true">▶</span><p>O primeiro render aparecerá aqui.</p></div>}<button type="button" className="anime-button primary full" onClick={() => void requestRender()} disabled={busy || !project.scenes.length || project.status === 'rendering'}>Gerar novo preview</button><p className="anime-governance-note">A IA pode ajudar na criação, mas nenhuma versão é publicada sem aprovação docente.</p><form className="anime-publication-form" onSubmit={(event) => { event.preventDefault(); void publishProject(new FormData(event.currentTarget)) }}><header><span className="anime-eyebrow">Distribuição</span><h2>Publicar para turmas</h2></header>{(project.production_notes.publication as AnimePublication | undefined) ? <p className="anime-publication-status">Publicada em {new Date((project.production_notes.publication as AnimePublication).published_at).toLocaleString('pt-BR')} · v{(project.production_notes.publication as AnimePublication).render_revision}</p> : null}<fieldset><legend>Turmas autorizadas</legend>{classrooms.filter((classroom) => classroom.is_active).map((classroom) => <label className="anime-check-row" key={classroom.id}><input type="checkbox" name="classroom_ids" value={classroom.id} defaultChecked={(project.production_notes.publication as AnimePublication | undefined)?.classroom_ids.includes(classroom.id)} /> <span>{classroom.name}{classroom.grade ? ` · ${classroom.grade}` : ''}</span></label>)}</fieldset><label className="anime-check-row"><input type="checkbox" name="include_captions" defaultChecked /> <span>Legendas</span></label><label className="anime-check-row"><input type="checkbox" name="include_transcript" defaultChecked /> <span>Transcrição</span></label><label className="anime-check-row"><input type="checkbox" name="include_audio_description" defaultChecked /> <span>Audiodescrição quando disponível</span></label><small>Saída {project.width}×{project.height} · somente a versão ativa aprovada.</small><button type="submit" className="anime-button primary full" disabled={busy || activeRender?.status !== 'approved' || !classrooms.length}>Publicar versão ativa</button></form></aside>
               </section>
             ) : null}
           </>
