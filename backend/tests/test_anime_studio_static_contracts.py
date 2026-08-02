@@ -141,6 +141,23 @@ def test_caption_editor_validates_overlap_and_reuses_canonical_cues() -> None:
     assert '"/projects/{project_id}/captions/{cue_id}"' in router
 
 
+def test_render_versions_reuse_snapshots_jobs_and_human_approval() -> None:
+    services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
+    router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")
+    operations = (BACKEND / "app/api/v1/routes_operations.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "source_snapshot=snapshot" in services
+    assert "async def restore_render_version" in services
+    assert 'render.status != "approved"' in services
+    assert '"active_render_id": str(render.id)' in services
+    assert 'action="anime.render.version_restored"' in services
+    assert "AnimeRender.organization_id == actor.organization_id" in services
+    assert '"/projects/{project_id}/renders/{render_id}/restore"' in router
+    assert '@router.post("/jobs/{job_id}/retry"' in operations
+
+
 def test_timeline_editor_reuses_canonical_scene_crud_and_audit() -> None:
     services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
     router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")

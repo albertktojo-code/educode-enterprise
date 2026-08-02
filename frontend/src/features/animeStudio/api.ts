@@ -8,6 +8,7 @@ import type {
   AnimeProject,
   AnimeProjectSummary,
   AnimeRender,
+  AnimeRenderJob,
   AnimeScene,
   AnimeStoryboardImportResult,
 } from './types'
@@ -129,6 +130,15 @@ export const animeStudioApi = {
       `/anime-studio/projects/${projectId}/renders/${renderId}/review`,
       { decision, notes },
     ),
+  restoreRender: (projectId: string, renderId: string) =>
+    api.post<AnimeProject>(
+      `/anime-studio/projects/${projectId}/renders/${renderId}/restore`,
+      {},
+    ),
+  getRenderJob: (jobId: string) =>
+    api.get<AnimeRenderJob>(`/operations/jobs/${jobId}`),
+  retryRenderJob: (jobId: string) =>
+    api.post<AnimeRenderJob>(`/operations/jobs/${jobId}/retry`, {}),
   uploadMedia: async (
     projectId: string,
     file: File,
