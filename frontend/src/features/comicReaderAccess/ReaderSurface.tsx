@@ -32,10 +32,17 @@ function PanelCard({
           </blockquote>
         ))}
       </div>
-      {preferences.show_alt_text ? (
-        <p className="reader-alt-text">
-          {panel.alt_text || "Descrição alternativa ainda não cadastrada."}
-        </p>
+      {preferences.show_alt_text || preferences.screen_reader_mode ? (
+        <div className="reader-descriptions">
+          <p className="reader-alt-text">
+            <strong>Descrição alternativa</strong>
+            <span>{panel.alt_text || "Descrição alternativa ainda não cadastrada."}</span>
+          </p>
+          <p className="reader-audio-description">
+            <strong>Audiodescrição</strong>
+            <span>{panel.audio_description || "Audiodescrição ainda não cadastrada."}</span>
+          </p>
+        </div>
       ) : null}
     </article>
   );
@@ -66,7 +73,7 @@ export function ReaderSurface({
 
   if (mode === "VERTICAL") {
     return (
-      <div className="reader-vertical">
+      <div className="reader-vertical reader-surface" aria-live={preferences.screen_reader_mode ? "polite" : "off"}>
         {pages.map((page, index) => (
           <section className="reader-page-stack" key={page.id ?? index}>
             <h2>{page.title || `Página ${page.page_number ?? index + 1}`}</h2>
@@ -89,14 +96,14 @@ export function ReaderSurface({
   if (mode === "PANEL" || mode === "FOCUS") {
     const panel = panels[panelIndex] ?? panels[0];
     return panel ? (
-      <PanelCard panel={panel} preferences={preferences} />
+      <div className="reader-surface" aria-live={preferences.screen_reader_mode ? "polite" : "off"}><PanelCard panel={panel} preferences={preferences} /></div>
     ) : (
       <div className="panel">A página não possui quadros.</div>
     );
   }
 
   return (
-    <section className="reader-page-stack">
+    <section className="reader-page-stack reader-surface" aria-live={preferences.screen_reader_mode ? "polite" : "off"}>
       <h2>{page.title || `Página ${page.page_number ?? pageIndex + 1}`}</h2>
       <div className="reader-page-grid">
         {panels.map((panel, index) => (

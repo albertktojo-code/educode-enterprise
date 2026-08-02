@@ -18,15 +18,20 @@ class ReaderPreferenceUpsert(BaseModel):
     caption_mode: str = "VISIBLE"
     focus_mode: bool = False
     narration_rate: float = Field(default=1.0, ge=0.5, le=2.0)
+    zoom_level: float = Field(default=1.0, ge=0.5, le=2.5)
+    orientation: str = "AUTO"
 
     @model_validator(mode="after")
     def normalize(self):
         self.reader_mode = self.reader_mode.upper()
         self.caption_mode = self.caption_mode.upper()
+        self.orientation = self.orientation.upper()
         if self.reader_mode not in {"PAGE", "PANEL", "VERTICAL", "FOCUS"}:
             raise ValueError("Invalid reader mode")
         if self.caption_mode not in {"VISIBLE", "ON_DEMAND", "HIDDEN"}:
             raise ValueError("Invalid caption mode")
+        if self.orientation not in {"AUTO", "PORTRAIT", "LANDSCAPE"}:
+            raise ValueError("Invalid orientation")
         return self
 
 
