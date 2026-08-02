@@ -31,8 +31,10 @@ from app.anime_studio.schemas import (
     AnimeRenderCreate,
     AnimeRenderReview,
     AnimeSceneCreate,
+    AnimeSceneSplit,
     AnimeSceneUpdate,
     AnimeStoryboardImport,
+    AnimeTimelineReorder,
 )
 from app.api.actor_context import ActorContext
 from app.models.assets import (
@@ -580,6 +582,116 @@ async def update_scene(
         raise HTTPException(status_code=409, detail="Já existe uma cena nessa posição") from exc
     await session.refresh(scene)
     return scene
+
+
+async def reorder_timeline(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    data: AnimeTimelineReorder,
+) -> AnimeProject:
+    require_editor(actor)
+    project = await get_project(
+        session,
+        organization_id=actor.organization_id,
+        project_id=project_id,
+        for_update=True,
+    )
+    scenes_by_id = {scene.id: scene for scene in project.scenes}
+    if set(data.scene_ids) != set(scenes_by_id):
+        raise HTTPException(
+            status_code=422,
+            detail="A reordenacao deve conter todas as cenas da timeline uma unica vez",
+        )
+    for temporary_position, scene_id in enumerate(data.scene_ids, start=1):
+        scenes_by_id[scene_id].position = -temporary_position
+    await session.flush()
+    for position, scene_id in enumerate(data.scene_ids, start=1):
+        scenes_by_id[scene_id].position = position
+    project.revision += 1
+    project.status = "draft"
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.timeline.reordered",
+        entity_type="anime_project",
+        entity_id=project.id,
+        details={"scene_ids": [str(scene_id) for scene_id in data.scene_ids]},
+    )
+    await session.commit()
+    return await get_project(session, organization_id=actor.organization_id, project_id=project.id)
+
+
+async def split_scene(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    scene_id: UUID,
+    data: AnimeSceneSplit,
+) -> tuple[AnimeScene, AnimeScene]:
+    require_editor(actor)
+    project = await get_project(
+        session,
+        organization_id=actor.organization_id,
+        project_id=project_id,
+        for_update=True,
+    )
+    scene = await _get_scene(session, project=project, scene_id=scene_id)
+    second_duration = scene.duration_ms - data.split_at_ms
+    if second_duration < 500:
+        raise HTTPException(status_code=422, detail="Cada parte da cena deve ter ao menos 500 ms")
+    later_scenes = sorted(
+        (item for item in project.scenes if item.position > scene.position),
+        key=lambda item: item.position,
+        reverse=True,
+    )
+    for later in later_scenes:
+        later.position += 1
+        await session.flush()
+    scene.duration_ms = data.split_at_ms
+    scene.revision += 1
+    second = AnimeScene(
+        organization_id=actor.organization_id,
+        project_id=project.id,
+        position=scene.position + 1,
+        title=data.second_title or f"{scene.title} - parte 2",
+        duration_ms=second_duration,
+        visual_asset_file_id=scene.visual_asset_file_id,
+        source_comic_page_id=scene.source_comic_page_id,
+        source_comic_panel_id=scene.source_comic_panel_id,
+        screenplay_text=scene.screenplay_text,
+        visual_prompt=scene.visual_prompt,
+        negative_prompt=scene.negative_prompt,
+        camera_settings=dict(scene.camera_settings),
+        transition_settings=dict(scene.transition_settings),
+        continuity_data={**dict(scene.continuity_data), "split_from_scene_id": str(scene.id)},
+        pedagogical_metadata=dict(scene.pedagogical_metadata),
+        created_by_user_id=actor.user_id,
+    )
+    session.add(second)
+    project.revision += 1
+    project.status = "draft"
+    await session.flush()
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.scene.split",
+        entity_type="anime_scene",
+        entity_id=scene.id,
+        details={
+            "project_id": str(project.id),
+            "second_scene_id": str(second.id),
+            "split_at_ms": data.split_at_ms,
+        },
+    )
+    await session.commit()
+    await session.refresh(scene)
+    await session.refresh(second)
+    return scene, second
 
 
 async def delete_scene(

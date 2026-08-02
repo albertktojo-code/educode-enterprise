@@ -13,7 +13,9 @@ from app.anime_studio.schemas import (
     AnimeCaptionCreate,
     AnimeMediaGenerationCreate,
     AnimeProjectCreate,
+    AnimeSceneSplit,
     AnimeStoryboardImport,
+    AnimeTimelineReorder,
 )
 from app.anime_studio.services import (
     estimate_media_generation_cost,
@@ -111,6 +113,19 @@ def test_media_generation_contract_supports_all_audiovisual_kinds() -> None:
             duration_ms=8000,
         )
         assert request.kind == kind
+
+
+def test_timeline_reorder_rejects_duplicate_scene_ids() -> None:
+    scene_id = uuid4()
+    with pytest.raises(ValidationError):
+        AnimeTimelineReorder(scene_ids=[scene_id, scene_id])
+
+
+def test_scene_split_requires_two_renderable_segments() -> None:
+    split = AnimeSceneSplit(split_at_ms=2500, second_title="Continuação")
+    assert split.split_at_ms == 2500
+    with pytest.raises(ValidationError):
+        AnimeSceneSplit(split_at_ms=200)
 
 
 def test_media_generation_cost_uses_kind_and_duration() -> None:

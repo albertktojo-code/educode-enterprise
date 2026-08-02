@@ -114,3 +114,13 @@ def test_anime_media_worker_creates_canonical_reviewable_artifacts() -> None:
     assert "generate_anime_media_job(job, progress)" in worker
     assert "scene.visual_asset_file_id = asset_file.id" in services
     assert "AnimeAudioTrack(" in services
+
+
+def test_timeline_editor_reuses_canonical_scene_crud_and_audit() -> None:
+    services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
+    router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")
+    assert 'action="anime.timeline.reordered"' in services
+    assert 'action="anime.scene.split"' in services
+    assert "split_from_scene_id" in services
+    assert '"/projects/{project_id}/timeline"' in router
+    assert '"/projects/{project_id}/scenes/{scene_id}/split"' in router

@@ -24,9 +24,12 @@ from app.anime_studio.schemas import (
     AnimeRenderReview,
     AnimeSceneCreate,
     AnimeSceneRead,
+    AnimeSceneSplit,
+    AnimeSceneSplitRead,
     AnimeSceneUpdate,
     AnimeStoryboardImport,
     AnimeStoryboardImportRead,
+    AnimeTimelineReorder,
 )
 from app.anime_studio.services import (
     archive_project,
@@ -41,11 +44,13 @@ from app.anime_studio.services import (
     import_comic_storyboard,
     list_media_generations,
     list_projects,
+    reorder_timeline,
     request_media_generation,
     request_render,
     require_editor,
     review_media_generation,
     review_render,
+    split_scene,
     update_audio_track,
     update_caption,
     update_project,
@@ -118,6 +123,33 @@ async def post_scene(
     actor: ActorContext = Depends(resolve_actor_context),
 ):
     return await create_scene(session, actor=actor, project_id=project_id, data=data)
+
+
+@router.put("/projects/{project_id}/timeline", response_model=AnimeProjectRead)
+async def put_timeline(
+    project_id: UUID,
+    data: AnimeTimelineReorder,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+):
+    return await reorder_timeline(session, actor=actor, project_id=project_id, data=data)
+
+
+@router.post(
+    "/projects/{project_id}/scenes/{scene_id}/split",
+    response_model=AnimeSceneSplitRead,
+)
+async def post_scene_split(
+    project_id: UUID,
+    scene_id: UUID,
+    data: AnimeSceneSplit,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+):
+    first, second = await split_scene(
+        session, actor=actor, project_id=project_id, scene_id=scene_id, data=data
+    )
+    return {"first": first, "second": second}
 
 
 @router.post(
