@@ -29,7 +29,9 @@ from app.anime_studio.schemas import (
     AnimeProjectCreate,
     AnimeProjectUpdate,
     AnimePublicationCreate,
+    AnimePublicationLibraryItem,
     AnimePublicationRead,
+    AnimePublicationTranscriptCue,
     AnimeRenderCreate,
     AnimeRenderReview,
     AnimeSceneCreate,
@@ -1741,3 +1743,146 @@ async def get_project_publication(
     if enrollment is None:
         raise HTTPException(status_code=403, detail="Publicação não autorizada para suas turmas")
     return publication
+
+
+async def list_project_publications(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+) -> list[AnimePublicationLibraryItem]:
+    projects = list(
+        (
+            await session.scalars(
+                select(AnimeProject)
+                .where(AnimeProject.organization_id == actor.organization_id)
+                .options(*PROJECT_LOAD_OPTIONS)
+                .order_by(AnimeProject.updated_at.desc())
+            )
+        ).unique().all()
+    )
+    allowed_classrooms: set[UUID] | None = None
+    if not actor.roles.intersection(EDITOR_ROLES | REVIEWER_ROLES):
+        allowed_classrooms = set(
+            (
+                await session.scalars(
+                    select(ClassroomEnrollment.classroom_id)
+                    .join(Classroom, Classroom.id == ClassroomEnrollment.classroom_id)
+                    .where(
+                        ClassroomEnrollment.user_id == actor.user_id,
+                        ClassroomEnrollment.role.ilike("student"),
+                        Classroom.organization_id == actor.organization_id,
+                        Classroom.is_active.is_(True),
+                    )
+                )
+            ).all()
+        )
+
+    items: list[AnimePublicationLibraryItem] = []
+    for project in projects:
+        try:
+            publication = _publication_from_notes(project)
+        except HTTPException:
+            continue
+        if allowed_classrooms is not None and not allowed_classrooms.intersection(
+            publication.classroom_ids
+        ):
+            continue
+        active_render = next(
+            (render for render in project.renders if render.id == publication.render_id),
+            None,
+        )
+        if active_render is None or active_render.status != "approved":
+            continue
+        items.append(
+            AnimePublicationLibraryItem(
+                publication=publication,
+                synopsis=project.synopsis,
+                duration_ms=active_render.duration_ms
+                or sum(scene.duration_ms for scene in project.scenes),
+                caption_count=len(project.captions)
+                if publication.caption_languages
+                else 0,
+            )
+        )
+    return items
+
+
+async def get_publication_transcript(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+) -> list[AnimePublicationTranscriptCue]:
+    publication = await get_project_publication(
+        session,
+        actor=actor,
+        project_id=project_id,
+    )
+    if not publication.includes_transcript:
+        return []
+    project = await get_project(
+        session,
+        organization_id=actor.organization_id,
+        project_id=project_id,
+    )
+    return [
+        AnimePublicationTranscriptCue(
+            start_ms=cue.start_ms,
+            end_ms=cue.end_ms,
+            speaker=cue.speaker,
+            text=cue.text,
+            cue_kind=cue.cue_kind,
+        )
+        for cue in sorted(project.captions, key=lambda item: (item.start_ms, item.cue_order))
+    ]
+
+
+async def get_publication_caption_cues(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+) -> list[AnimePublicationTranscriptCue]:
+    publication = await get_project_publication(
+        session,
+        actor=actor,
+        project_id=project_id,
+    )
+    if not publication.caption_languages:
+        return []
+    project = await get_project(
+        session,
+        organization_id=actor.organization_id,
+        project_id=project_id,
+    )
+    return [
+        AnimePublicationTranscriptCue(
+            start_ms=cue.start_ms,
+            end_ms=cue.end_ms,
+            speaker=cue.speaker,
+            text=cue.text,
+            cue_kind=cue.cue_kind,
+        )
+        for cue in sorted(project.captions, key=lambda item: (item.start_ms, item.cue_order))
+    ]
+
+
+def transcript_as_webvtt(cues: list[AnimePublicationTranscriptCue]) -> str:
+    def timestamp(milliseconds: int) -> str:
+        hours, remainder = divmod(milliseconds, 3_600_000)
+        minutes, remainder = divmod(remainder, 60_000)
+        seconds, millis = divmod(remainder, 1_000)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}.{millis:03d}"
+
+    lines = ["WEBVTT", ""]
+    for index, cue in enumerate(cues, start=1):
+        text = f"{cue.speaker}: {cue.text}" if cue.speaker else cue.text
+        lines.extend(
+            [
+                str(index),
+                f"{timestamp(cue.start_ms)} --> {timestamp(cue.end_ms)}",
+                text,
+                "",
+            ]
+        )
+    return "\n".join(lines)

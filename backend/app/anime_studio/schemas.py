@@ -220,6 +220,21 @@ class AnimePublicationRead(BaseModel):
     media_path: str
 
 
+class AnimePublicationLibraryItem(BaseModel):
+    publication: AnimePublicationRead
+    synopsis: str
+    duration_ms: int
+    caption_count: int
+
+
+class AnimePublicationTranscriptCue(BaseModel):
+    start_ms: int
+    end_ms: int
+    speaker: str
+    text: str
+    cue_kind: str
+
+
 class AnimeSceneRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

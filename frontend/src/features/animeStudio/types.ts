@@ -131,6 +131,21 @@ export interface AnimePublication {
   media_path: string
 }
 
+export interface AnimePublicationLibraryItem {
+  publication: AnimePublication
+  synopsis: string
+  duration_ms: number
+  caption_count: number
+}
+
+export interface AnimePublicationTranscriptCue {
+  start_ms: number
+  end_ms: number
+  speaker: string
+  text: string
+  cue_kind: string
+}
+
 export interface AnimeProjectSummary {
   id: string
   title: string

@@ -217,6 +217,11 @@ const studentGroups: NavGroup[] = [
         label: "HQs interativas",
         icon: "▤",
       },
+      {
+        to: "/anime-library",
+        label: "Vídeos da turma",
+        icon: "▶",
+      },
     ],
   },
 ];
