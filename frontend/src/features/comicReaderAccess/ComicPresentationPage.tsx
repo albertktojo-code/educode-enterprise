@@ -18,6 +18,8 @@ const PRESENTATION_PREFERENCES: ReaderPreferences = {
   caption_mode: "VISIBLE",
   focus_mode: true,
   narration_rate: 1,
+  zoom_level: 1,
+  orientation: "AUTO",
 };
 
 export function ComicPresentationPage() {

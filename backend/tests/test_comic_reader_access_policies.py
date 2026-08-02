@@ -10,12 +10,27 @@ from app.comic_reader_access.policies import (
 
 def test_preferences_are_normalized_and_clamped():
     result = normalize_preferences(
-        {"reader_mode": "panel", "font_scale": 9, "line_spacing": 0, "narration_rate": 4}
+        {
+            "reader_mode": "panel",
+            "font_scale": 9,
+            "line_spacing": 0,
+            "narration_rate": 4,
+            "zoom_level": 9,
+            "orientation": "landscape",
+        }
     )
     assert result["reader_mode"] == "PANEL"
     assert result["font_scale"] == 2.5
     assert result["line_spacing"] == 1.0
     assert result["narration_rate"] == 2.0
+    assert result["zoom_level"] == 2.5
+    assert result["orientation"] == "LANDSCAPE"
+
+
+def test_invalid_orientation_falls_back_to_auto():
+    result = normalize_preferences({"orientation": "diagonal", "zoom_level": 0.1})
+    assert result["orientation"] == "AUTO"
+    assert result["zoom_level"] == 0.5
 
 
 def test_progress_uses_highest_position():

@@ -16,6 +16,17 @@ def test_invalid_reader_mode_is_rejected():
         ReaderPreferenceUpsert(reader_mode="cinema")
 
 
+def test_orientation_is_normalized():
+    item = ReaderPreferenceUpsert(orientation="portrait", zoom_level=1.8)
+    assert item.orientation == "PORTRAIT"
+    assert item.zoom_level == 1.8
+
+
+def test_invalid_orientation_is_rejected():
+    with pytest.raises(ValidationError):
+        ReaderPreferenceUpsert(orientation="diagonal")
+
+
 def test_recorded_narration_requires_audio():
     with pytest.raises(ValidationError):
         NarrationTrackCreate(source_type="HUMAN_RECORDING", transcript="Texto")
