@@ -58,6 +58,7 @@ import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { StudentAssignmentPage } from './pages/StudentAssignmentPage'
 import { StudentAssignmentsPage } from './pages/StudentAssignmentsPage'
+import { StudentPortalPage } from './pages/StudentPortalPage'
 import { StoryboardPage } from './pages/StoryboardPage'
 import { SubjectsPage } from './pages/SubjectsPage'
 import { TeachingSequencesPage } from './pages/TeachingSequencesPage'
@@ -112,6 +113,7 @@ export default function App() {
               <Route path="analytics/atividades/:assignmentId" element={<AssignmentAnalyticsPage />} />
               <Route path="analytics/alertas" element={<AnalyticsAlertsPage />} />
               <Route path="publicacoes/:assignmentId" element={<AssignmentDetailPage />} />
+              <Route path="aluno" element={<StudentPortalPage />} />
               <Route path="aluno/atividades" element={<StudentAssignmentsPage />} />
               <Route path="aluno/progresso" element={<StudentProgressPage />} />
               <Route path="aluno/minha-trilha" element={<StudentLearningPathPage />} />
