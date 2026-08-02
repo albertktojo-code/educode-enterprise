@@ -10,6 +10,7 @@ from app.anime_studio.models import AnimeProject
 from app.anime_studio.rendering import _scene_filter, _srt_timestamp
 from app.anime_studio.schemas import (
     AnimeAudioTrackCreate,
+    AnimeAudioTrackUpdate,
     AnimeCaptionCreate,
     AnimeMediaGenerationCreate,
     AnimeProjectCreate,
@@ -59,6 +60,24 @@ def test_audio_contract_supports_accessibility_and_mixing() -> None:
     )
     assert track.track_kind == "audio_description"
     assert track.volume == 0.85
+
+
+def test_audio_mix_update_supports_cuts_fades_volume_and_mute() -> None:
+    mix = AnimeAudioTrackUpdate(
+        start_ms=1200,
+        duration_ms=5000,
+        trim_start_ms=500,
+        volume=0.7,
+        fade_in_ms=250,
+        fade_out_ms=400,
+        is_muted=True,
+    )
+    assert mix.duration_ms == 5000
+    assert mix.trim_start_ms == 500
+    assert mix.volume == 0.7
+    assert mix.fade_in_ms == 250
+    assert mix.fade_out_ms == 400
+    assert mix.is_muted is True
 
 
 def test_storyboard_import_maps_hq_panel_into_timed_anime_scene() -> None:

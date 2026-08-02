@@ -85,6 +85,14 @@ export const animeStudioApi = {
       `/anime-studio/projects/${projectId}/audio-tracks`,
       input,
     ),
+  updateAudioTrack: (
+    projectId: string,
+    trackId: string,
+    input: Record<string, unknown>,
+  ) => api.patch<AnimeAudioTrack>(
+    `/anime-studio/projects/${projectId}/audio-tracks/${trackId}`,
+    input,
+  ),
   deleteAudioTrack: (projectId: string, trackId: string) =>
     api.delete<void>(
       `/anime-studio/projects/${projectId}/audio-tracks/${trackId}`,
