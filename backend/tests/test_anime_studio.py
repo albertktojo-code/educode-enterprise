@@ -1,3 +1,4 @@
+import shutil
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -125,6 +126,7 @@ def test_generated_media_contract_selects_real_file_formats() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg not installed")
 async def test_internal_provider_generates_valid_image_video_and_audio(tmp_path) -> None:
     outputs = {
         "image": tmp_path / "image.png",
