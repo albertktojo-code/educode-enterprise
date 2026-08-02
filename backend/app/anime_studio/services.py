@@ -31,6 +31,7 @@ from app.anime_studio.schemas import (
     AnimePublicationCreate,
     AnimePublicationLibraryItem,
     AnimePublicationRead,
+    AnimePublicationRendition,
     AnimePublicationTranscriptCue,
     AnimeRenderCreate,
     AnimeRenderReview,
@@ -1653,6 +1654,44 @@ async def publish_project(
         track.track_kind == "audio_description" and not track.is_muted
         for track in project.audio_tracks
     )
+    renditions: list[AnimePublicationRendition] = []
+    if render.output_asset_id is not None:
+        asset_files = list(
+            (
+                await session.scalars(
+                    select(InstitutionalAssetFile)
+                    .where(
+                        InstitutionalAssetFile.asset_id == render.output_asset_id,
+                        InstitutionalAssetFile.mime_type == "video/mp4",
+                        InstitutionalAssetFile.view_type.like("anime_render%"),
+                    )
+                    .order_by(InstitutionalAssetFile.height.desc())
+                )
+            ).all()
+        )
+        for asset_file in asset_files:
+            is_source = asset_file.id == render.output_asset_file_id
+            label = (
+                "Original"
+                if is_source
+                else asset_file.view_type.removeprefix("anime_render_")
+            )
+            renditions.append(
+                AnimePublicationRendition(
+                    label=label,
+                    asset_file_id=asset_file.id,
+                    width=asset_file.width or project.width,
+                    height=asset_file.height or project.height,
+                    size_bytes=asset_file.size_bytes,
+                    media_path=(
+                        f"/anime-studio/publications/{project.id}/media"
+                        if is_source
+                        else (
+                            f"/anime-studio/publications/{project.id}/media/{asset_file.id}"
+                        )
+                    ),
+                )
+            )
     published_at = utcnow()
     publication = AnimePublicationRead(
         project_id=project.id,
@@ -1670,6 +1709,7 @@ async def publish_project(
         includes_transcript=data.include_transcript and bool(project.captions),
         includes_audio_description=has_audio_description,
         media_path=f"/anime-studio/publications/{project.id}/media",
+        renditions=renditions,
     )
     manifest = publication.model_dump(mode="json")
     project.production_notes = {**project.production_notes, "publication": manifest}

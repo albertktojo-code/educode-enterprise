@@ -21,6 +21,7 @@ from app.models.assets import (
     InstitutionalAssetFile,
     InstitutionalAssetStatus,
     InstitutionalAssetType,
+    InstitutionalAssetVariant,
     InstitutionalAssetVersion,
     InstitutionalAssetVisibility,
     InstitutionalLicenseType,
@@ -80,6 +81,53 @@ def _scene_filter(width: int, height: int, fps: int) -> str:
         f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
         f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,"
         f"fps={fps},format=yuv420p"
+    )
+
+
+def rendition_profiles(width: int, height: int) -> list[dict[str, int | str]]:
+    profiles: list[dict[str, int | str]] = []
+    for target_height in (720, 480):
+        if target_height >= height:
+            continue
+        target_width = max(2, round(width * target_height / height / 2) * 2)
+        profiles.append(
+            {
+                "label": f"{target_height}p",
+                "width": target_width,
+                "height": target_height,
+            }
+        )
+    return profiles
+
+
+async def _transcode_rendition(
+    source: Path,
+    destination: Path,
+    *,
+    width: int,
+    height: int,
+) -> None:
+    await _run_ffmpeg(
+        [
+            "-i",
+            str(source),
+            "-vf",
+            f"scale={width}:{height}:flags=lanczos,format=yuv420p",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "fast",
+            "-crf",
+            "24",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+            "-movflags",
+            "+faststart",
+            str(destination),
+        ],
+        cwd=destination.parent,
     )
 
 
@@ -246,7 +294,7 @@ async def render_anime_job(job: BackgroundJob, progress: ProgressCallback) -> di
         settings.institutional_asset_storage_path,
         settings.max_anime_media_size_mb * 1024 * 1024,
     )
-    saved_storage_key: str | None = None
+    saved_storage_keys: list[str] = []
     async with AsyncSessionFactory() as session:
         render = await session.get(AnimeRender, render_id)
         if render is None or render.organization_id != job.organization_id:
@@ -371,24 +419,54 @@ async def render_anime_job(job: BackgroundJob, progress: ProgressCallback) -> di
                 await _burn_captions(mixed_video, captioned_video, captions)
                 final_video = captioned_video
 
+            profiles = rendition_profiles(
+                int(project_snapshot["width"]),
+                int(project_snapshot["height"]),
+            )
+            rendition_outputs: list[tuple[dict[str, int | str], Path]] = []
+            if profiles:
+                await progress(82, "Gerando resoluções otimizadas", None)
+            for profile in profiles:
+                rendition_output = workdir / f"rendition-{profile['label']}.mp4"
+                await _transcode_rendition(
+                    final_video,
+                    rendition_output,
+                    width=int(profile["width"]),
+                    height=int(profile["height"]),
+                )
+                rendition_outputs.append((profile, rendition_output))
+
             await progress(88, "Salvando vídeo na biblioteca institucional", None)
             saved = storage.save_render(
                 final_video,
                 project.organization_id,
                 file_name=f"{project_snapshot['title']}-v{render.revision}.mp4",
             )
-            saved_storage_key = saved.storage_key
+            saved_storage_keys.append(saved.storage_key)
+            saved_renditions = []
+            for profile, output in rendition_outputs:
+                rendition = storage.save_render(
+                    output,
+                    project.organization_id,
+                    file_name=(
+                        f"{project_snapshot['title']}-v{render.revision}-{profile['label']}.mp4"
+                    ),
+                )
+                saved_storage_keys.append(rendition.storage_key)
+                saved_renditions.append((profile, rendition))
             async with AsyncSessionFactory() as output_session:
                 stored_render = await output_session.get(AnimeRender, render.id)
                 stored_project = await output_session.get(AnimeProject, project.id)
                 if stored_render is None or stored_project is None:
-                    storage.delete(saved.storage_key)
+                    for storage_key in saved_storage_keys:
+                        storage.delete(storage_key)
                     raise RuntimeError("Estado da produção foi removido durante a renderização")
                 asset = InstitutionalAsset(
                     organization_id=project.organization_id,
                     asset_type=InstitutionalAssetType.OTHER,
                     name=(
-                        f"{project_snapshot['title']} · render {render.revision} · {str(project.id)[:8]}"
+                        f"{project_snapshot['title']} · render {render.revision} · "
+                        f"{str(project.id)[:8]}"
                     ),
                     description="Vídeo de anime educacional aguardando revisão humana.",
                     category="Vídeos Anime",
@@ -403,6 +481,7 @@ async def render_anime_job(job: BackgroundJob, progress: ProgressCallback) -> di
                             int(project_snapshot["width"]),
                             int(project_snapshot["height"]),
                         ],
+                        "rendition_profiles": profiles,
                         "captions_burned": bool(
                             render.render_settings.get("burn_captions", True) and captions
                         ),
@@ -443,6 +522,36 @@ async def render_anime_job(job: BackgroundJob, progress: ProgressCallback) -> di
                 )
                 output_session.add(asset_file)
                 await output_session.flush()
+                rendition_file_ids: list[str] = []
+                for profile, rendition in saved_renditions:
+                    variant = InstitutionalAssetVariant(
+                        asset_id=asset.id,
+                        name=str(profile["label"]),
+                        variant_type="video_resolution",
+                        metadata_json={
+                            "width": int(profile["width"]),
+                            "height": int(profile["height"]),
+                        },
+                    )
+                    output_session.add(variant)
+                    await output_session.flush()
+                    rendition_file = InstitutionalAssetFile(
+                        asset_id=asset.id,
+                        variant_id=variant.id,
+                        file_name=rendition.file_name,
+                        mime_type=rendition.mime_type,
+                        storage_key=rendition.storage_key,
+                        checksum_sha256=rendition.checksum_sha256,
+                        size_bytes=rendition.size_bytes,
+                        width=int(profile["width"]),
+                        height=int(profile["height"]),
+                        view_type=f"anime_render_{profile['label']}",
+                        is_primary=False,
+                        is_original=False,
+                    )
+                    output_session.add(rendition_file)
+                    await output_session.flush()
+                    rendition_file_ids.append(str(rendition_file.id))
                 output_session.add(
                     InstitutionalAssetAudit(
                         organization_id=project.organization_id,
@@ -463,7 +572,7 @@ async def render_anime_job(job: BackgroundJob, progress: ProgressCallback) -> di
                 stored_project.status = "in_review"
                 await output_session.commit()
                 output_asset_id = asset.id
-                saved_storage_key = None
+                saved_storage_keys = []
                 output_file_id = asset_file.id
         await progress(96, "Vídeo pronto para revisão humana", None)
         return {
@@ -471,12 +580,13 @@ async def render_anime_job(job: BackgroundJob, progress: ProgressCallback) -> di
             "project_id": str(project.id),
             "output_asset_id": str(output_asset_id),
             "output_asset_file_id": str(output_file_id),
+            "rendition_file_ids": rendition_file_ids,
             "duration_ms": total_duration_ms,
             "review_required": True,
         }
     except Exception as exc:
-        if saved_storage_key is not None:
-            storage.delete(saved_storage_key)
+        for storage_key in saved_storage_keys:
+            storage.delete(storage_key)
         async with AsyncSessionFactory() as error_session:
             failed_render = await error_session.get(AnimeRender, render_id)
             if failed_render is not None:
