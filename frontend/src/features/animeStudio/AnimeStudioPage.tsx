@@ -6,8 +6,14 @@ import {
 } from 'react'
 
 import { animeStudioApi } from './api'
+import {
+  overlappingCaptionIds,
+  parseCaptionFile,
+  serializeCaptions,
+} from './captionFiles'
 import type {
   AnimeAudioTrack,
+  AnimeCaptionCue,
   AnimeMediaGeneration,
   AnimeMediaGenerationKind,
   AnimeProject,
@@ -261,6 +267,7 @@ export function AnimeStudioPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [captionPreviewMs, setCaptionPreviewMs] = useState(0)
 
   const loadProjects = useCallback(async () => {
     const rows = await animeStudioApi.listProjects()
@@ -332,6 +339,16 @@ export function AnimeStudioPage() {
   const totalDuration = useMemo(
     () => project?.scenes.reduce((total, scene) => total + scene.duration_ms, 0) ?? 0,
     [project?.scenes],
+  )
+  const captionConflicts = useMemo(
+    () => overlappingCaptionIds(project?.captions ?? []),
+    [project?.captions],
+  )
+  const activeCaption = useMemo(
+    () => project?.captions
+      .filter((cue) => cue.start_ms <= captionPreviewMs && cue.end_ms > captionPreviewMs)
+      .sort((a, b) => a.cue_order - b.cue_order)[0] ?? null,
+    [captionPreviewMs, project?.captions],
   )
 
   async function execute(action: () => Promise<void>, successMessage: string) {
@@ -575,6 +592,63 @@ export function AnimeStudioPage() {
         cue_kind: String(data.get('kind') ?? 'dialogue'),
       })
     }, 'Legenda adicionada.')
+  }
+
+  async function updateCaption(cue: AnimeCaptionCue, data: FormData) {
+    if (!project) return
+    await execute(async () => {
+      await animeStudioApi.updateCaption(project.id, cue.id, {
+        scene_id: data.get('scene_id') || null,
+        language: 'pt-BR',
+        start_ms: Number(data.get('start') ?? 0) * 1000,
+        end_ms: Number(data.get('end') ?? 0) * 1000,
+        text: String(data.get('text') ?? ''),
+        speaker: String(data.get('speaker') ?? ''),
+        cue_kind: String(data.get('kind') ?? 'dialogue'),
+      })
+    }, 'Legenda atualizada e sincronizada.')
+  }
+
+  async function importCaptions(data: FormData) {
+    if (!project) return
+    const file = data.get('caption_file')
+    if (!(file instanceof File) || !file.size) return
+    await execute(async () => {
+      const imported = parseCaptionFile(await file.text())
+      if (!imported.length) throw new Error('O arquivo não possui legendas SRT/VTT válidas.')
+      const candidates = [
+        ...project.captions,
+        ...imported.map((cue, index) => ({
+          ...cue,
+          id: `import-${index}`,
+          language: 'pt-BR',
+        })),
+      ]
+      if (overlappingCaptionIds(candidates).size) {
+        throw new Error('A importação contém intervalos sobrepostos em pt-BR.')
+      }
+      const initialOrder = Math.max(0, ...project.captions.map((cue) => cue.cue_order))
+      for (const [index, cue] of imported.entries()) {
+        await animeStudioApi.createCaption(project.id, {
+          scene_id: null,
+          language: 'pt-BR',
+          cue_order: initialOrder + index + 1,
+          ...cue,
+        })
+      }
+    }, `Legendas importadas de ${file.name}.`)
+  }
+
+  function exportCaptions(format: 'srt' | 'vtt') {
+    if (!project?.captions.length) return
+    const content = serializeCaptions(project.captions, format)
+    const blob = new Blob([content], { type: format === 'srt' ? 'application/x-subrip' : 'text/vtt' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${project.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.${format}`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   async function requestRender() {
@@ -904,7 +978,28 @@ export function AnimeStudioPage() {
               <section className="anime-tool-grid">
                 <div className="anime-caption-board">
                   <header><div><span className="anime-eyebrow">Acessibilidade</span><h2>Legendas e sons importantes</h2></div><span>pt-BR</span></header>
-                  {project.captions.length ? <ol>{project.captions.map((cue) => <li key={cue.id}><time>{formatDuration(cue.start_ms)} → {formatDuration(cue.end_ms)}</time><div><strong>{cue.speaker || (cue.cue_kind === 'sound' ? 'Som' : 'Narração')}</strong><p>{cue.text}</p></div><button type="button" className="anime-icon-button danger" aria-label="Excluir legenda" onClick={() => void execute(() => animeStudioApi.deleteCaption(project.id, cue.id), 'Legenda removida.')}>×</button></li>)}</ol> : <div className="anime-empty-state"><span aria-hidden="true">CC</span><h3>Sem legendas</h3><p>Inclua falas, narração e descrições de sons relevantes.</p></div>}
+                  <div className="anime-caption-preview">
+                    <SecureMedia fileId={latestRender?.output_asset_file_id ?? selectedScene?.visual_asset_file_id ?? null} title="Preview sincronizado das legendas" controls />
+                    <div className={`anime-caption-overlay${activeCaption ? ' is-active' : ''}`} aria-live="polite">
+                      {activeCaption ? <><strong>{activeCaption.speaker}</strong><span>{activeCaption.text}</span></> : <span>Sem legenda neste instante</span>}
+                    </div>
+                  </div>
+                  <label className="anime-caption-scrubber">Posição do preview · {formatDuration(captionPreviewMs)}<input type="range" min="0" max={Math.max(1000, totalDuration, ...project.captions.map((cue) => cue.end_ms))} step="100" value={captionPreviewMs} onChange={(event) => setCaptionPreviewMs(Number(event.target.value))} /></label>
+                  {captionConflicts.size ? <div className="anime-alert error" role="alert">Há {captionConflicts.size} legendas com intervalos sobrepostos. Ajuste os tempos destacados.</div> : null}
+                  {project.captions.length ? <ol>{[...project.captions].sort((a, b) => a.start_ms - b.start_ms).map((cue) => (
+                    <li className={captionConflicts.has(cue.id) ? 'has-conflict' : ''} key={cue.id}>
+                      <form className="anime-caption-editor" onSubmit={(event) => { event.preventDefault(); void updateCaption(cue, new FormData(event.currentTarget)) }}>
+                        <label>Início (s)<input name="start" type="number" min="0" step="0.1" defaultValue={cue.start_ms / 1000} required /></label>
+                        <label>Fim (s)<input name="end" type="number" min="0.1" step="0.1" defaultValue={cue.end_ms / 1000} required /></label>
+                        <label>Cena<select name="scene_id" defaultValue={cue.scene_id ?? ''}><option value="">Produção inteira</option>{project.scenes.map((scene) => <option value={scene.id} key={scene.id}>Cena {scene.position} · {scene.title}</option>)}</select></label>
+                        <label>Tipo<select name="kind" defaultValue={cue.cue_kind}><option value="dialogue">Diálogo</option><option value="narration">Narração</option><option value="sound">Som importante</option><option value="audio_description">Audiodescrição</option></select></label>
+                        <label>Locutor<input name="speaker" defaultValue={cue.speaker} /></label>
+                        <label className="anime-caption-text">Texto<textarea name="text" rows={2} defaultValue={cue.text} required /></label>
+                        <button type="submit" className="anime-button ghost" disabled={busy}>Salvar</button>
+                        <button type="button" className="anime-icon-button danger" aria-label={`Excluir legenda ${cue.cue_order}`} onClick={() => void execute(() => animeStudioApi.deleteCaption(project.id, cue.id), 'Legenda removida.')}>×</button>
+                      </form>
+                    </li>
+                  ))}</ol> : <div className="anime-empty-state"><span aria-hidden="true">CC</span><h3>Sem legendas</h3><p>Inclua falas, narração e descrições de sons relevantes.</p></div>}
                 </div>
                 <form className="anime-inspector" onSubmit={(event) => { event.preventDefault(); void createCaption(new FormData(event.currentTarget)); event.currentTarget.reset() }}>
                   <header><span className="anime-eyebrow">Novo trecho</span><h2>Adicionar legenda</h2></header>
@@ -914,6 +1009,11 @@ export function AnimeStudioPage() {
                   <label>Personagem/locutor<input name="speaker" /></label>
                   <label>Texto<textarea name="text" rows={5} required placeholder="[Som de chuva] ou fala do personagem" /></label>
                   <button type="submit" className="anime-button primary" disabled={busy}>Adicionar legenda</button>
+                  <hr />
+                  <header><span className="anime-eyebrow">Interoperabilidade</span><h2>SRT e WebVTT</h2></header>
+                  <label>Arquivo de legendas<input name="caption_file" type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" /></label>
+                  <button type="button" className="anime-button ghost" disabled={busy} onClick={(event) => { const form = event.currentTarget.form; if (form) void importCaptions(new FormData(form)) }}>Importar SRT/VTT</button>
+                  <div className="anime-caption-export"><button type="button" className="anime-button ghost" onClick={() => exportCaptions('srt')} disabled={!project.captions.length}>Exportar SRT</button><button type="button" className="anime-button ghost" onClick={() => exportCaptions('vtt')} disabled={!project.captions.length}>Exportar VTT</button></div>
                 </form>
               </section>
             ) : null}

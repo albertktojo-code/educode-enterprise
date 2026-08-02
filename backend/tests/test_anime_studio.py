@@ -12,6 +12,7 @@ from app.anime_studio.schemas import (
     AnimeAudioTrackCreate,
     AnimeAudioTrackUpdate,
     AnimeCaptionCreate,
+    AnimeCaptionUpdate,
     AnimeMediaGenerationCreate,
     AnimeProjectCreate,
     AnimeSceneSplit,
@@ -47,6 +48,18 @@ def test_caption_requires_positive_time_window() -> None:
             end_ms=2000,
             text="Janela inválida",
         )
+
+
+def test_caption_update_supports_sync_and_accessibility_kinds() -> None:
+    cue = AnimeCaptionUpdate(
+        start_ms=1200,
+        end_ms=3400,
+        text="[Som de chuva]",
+        speaker="Narrador",
+        cue_kind="sound",
+    )
+    assert (cue.start_ms, cue.end_ms) == (1200, 3400)
+    assert cue.cue_kind == "sound"
 
 
 def test_audio_contract_supports_accessibility_and_mixing() -> None:

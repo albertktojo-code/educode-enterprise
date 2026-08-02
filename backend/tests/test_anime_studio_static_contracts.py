@@ -128,6 +128,19 @@ def test_audio_mixer_reuses_canonical_tracks_assets_and_tenant_scope() -> None:
     assert '"/projects/{project_id}/audio-tracks/{track_id}"' in router
 
 
+def test_caption_editor_validates_overlap_and_reuses_canonical_cues() -> None:
+    services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
+    router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")
+    schemas = (BACKEND / "app/anime_studio/schemas.py").read_text(encoding="utf-8")
+
+    assert "class AnimeCaptionUpdate" in schemas
+    assert "_ensure_caption_window_available" in services
+    assert "AnimeCaptionCue.start_ms < end_ms" in services
+    assert "AnimeCaptionCue.end_ms > start_ms" in services
+    assert "AnimeCaptionCue.organization_id == project.organization_id" in services
+    assert '"/projects/{project_id}/captions/{cue_id}"' in router
+
+
 def test_timeline_editor_reuses_canonical_scene_crud_and_audit() -> None:
     services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
     router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")

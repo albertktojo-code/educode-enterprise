@@ -1122,6 +1122,13 @@ async def create_caption(
     )
     if data.scene_id:
         await _get_scene(session, project=project, scene_id=data.scene_id)
+    await _ensure_caption_window_available(
+        session,
+        project=project,
+        language=data.language,
+        start_ms=data.start_ms,
+        end_ms=data.end_ms,
+    )
     cue = AnimeCaptionCue(
         organization_id=actor.organization_id,
         project_id=project.id,
@@ -1165,6 +1172,31 @@ async def _get_caption(
     return cue
 
 
+async def _ensure_caption_window_available(
+    session: AsyncSession,
+    *,
+    project: AnimeProject,
+    language: str,
+    start_ms: int,
+    end_ms: int,
+    exclude_cue_id: UUID | None = None,
+) -> None:
+    query = select(AnimeCaptionCue.id).where(
+        AnimeCaptionCue.project_id == project.id,
+        AnimeCaptionCue.organization_id == project.organization_id,
+        AnimeCaptionCue.language == language,
+        AnimeCaptionCue.start_ms < end_ms,
+        AnimeCaptionCue.end_ms > start_ms,
+    )
+    if exclude_cue_id is not None:
+        query = query.where(AnimeCaptionCue.id != exclude_cue_id)
+    if await session.scalar(query.limit(1)) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Intervalo de legenda sobrepõe outra legenda do mesmo idioma",
+        )
+
+
 async def update_caption(
     session: AsyncSession,
     *,
@@ -1183,6 +1215,14 @@ async def update_caption(
     end_ms = changes.get("end_ms", cue.end_ms)
     if end_ms <= start_ms:
         raise HTTPException(status_code=422, detail="Fim da legenda deve ser posterior ao início")
+    await _ensure_caption_window_available(
+        session,
+        project=project,
+        language=changes.get("language", cue.language),
+        start_ms=start_ms,
+        end_ms=end_ms,
+        exclude_cue_id=cue.id,
+    )
     if "scene_id" in changes and changes["scene_id"]:
         await _get_scene(session, project=project, scene_id=changes["scene_id"])
     for key, value in changes.items():
