@@ -176,6 +176,20 @@ def test_publication_reuses_approved_render_assets_and_classrooms() -> None:
     assert '"/publications/{project_id}/media"' in media_router
 
 
+def test_student_anime_library_is_class_scoped_and_accessible() -> None:
+    services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
+    router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")
+
+    assert "async def list_project_publications" in services
+    assert "allowed_classrooms.intersection" in services
+    assert "ClassroomEnrollment.user_id == actor.user_id" in services
+    assert "def transcript_as_webvtt" in services
+    assert "async def get_publication_caption_cues" in services
+    assert '"/publications"' in router
+    assert '"/publications/{project_id}/transcript"' in router
+    assert '"/publications/{project_id}/captions.vtt"' in router
+
+
 def test_timeline_editor_reuses_canonical_scene_crud_and_audit() -> None:
     services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
     router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")

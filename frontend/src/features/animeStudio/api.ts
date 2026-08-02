@@ -9,6 +9,8 @@ import type {
   AnimeProject,
   AnimeProjectSummary,
   AnimePublication,
+  AnimePublicationLibraryItem,
+  AnimePublicationTranscriptCue,
   AnimeRender,
   AnimeRenderJob,
   AnimeScene,
@@ -30,6 +32,16 @@ export interface CreateAnimeProjectInput {
 export const animeStudioApi = {
   listProjects: () => api.get<AnimeProjectSummary[]>('/anime-studio/projects'),
   listClassrooms: () => api.get<AnimeClassroom[]>('/classrooms'),
+  listPublications: () =>
+    api.get<AnimePublicationLibraryItem[]>('/anime-studio/publications'),
+  publicationTranscript: (projectId: string) =>
+    api.get<AnimePublicationTranscriptCue[]>(
+      `/anime-studio/publications/${projectId}/transcript`,
+    ),
+  publicationMedia: (projectId: string) =>
+    apiBlob(`/anime-studio/publications/${projectId}/media`),
+  publicationCaptions: (projectId: string) =>
+    apiBlob(`/anime-studio/publications/${projectId}/captions.vtt`),
   getProject: (projectId: string) =>
     api.get<AnimeProject>(`/anime-studio/projects/${projectId}`),
   createProject: (input: CreateAnimeProjectInput) =>

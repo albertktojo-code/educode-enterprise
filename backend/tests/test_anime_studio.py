@@ -15,6 +15,7 @@ from app.anime_studio.schemas import (
     AnimeCaptionUpdate,
     AnimeMediaGenerationCreate,
     AnimeProjectCreate,
+    AnimePublicationTranscriptCue,
     AnimeSceneSplit,
     AnimeStoryboardImport,
     AnimeTimelineReorder,
@@ -23,6 +24,7 @@ from app.anime_studio.services import (
     estimate_media_generation_cost,
     render_snapshot,
     storyboard_scene_inputs,
+    transcript_as_webvtt,
 )
 from app.anime_studio.storage import AnimeMediaStorage, InvalidAnimeMediaError
 
@@ -60,6 +62,23 @@ def test_caption_update_supports_sync_and_accessibility_kinds() -> None:
     )
     assert (cue.start_ms, cue.end_ms) == (1200, 3400)
     assert cue.cue_kind == "sound"
+
+
+def test_publication_transcript_exports_valid_webvtt() -> None:
+    webvtt = transcript_as_webvtt(
+        [
+            AnimePublicationTranscriptCue(
+                start_ms=1200,
+                end_ms=3400,
+                speaker="Narrador",
+                text="A personagem aponta para o diagrama.",
+                cue_kind="audio_description",
+            )
+        ]
+    )
+    assert webvtt.startswith("WEBVTT\n")
+    assert "00:00:01.200 --> 00:00:03.400" in webvtt
+    assert "Narrador: A personagem aponta" in webvtt
 
 
 def test_audio_contract_supports_accessibility_and_mixing() -> None:

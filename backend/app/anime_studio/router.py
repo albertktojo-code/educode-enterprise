@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.anime_studio.schemas import (
@@ -20,7 +21,9 @@ from app.anime_studio.schemas import (
     AnimeProjectSummary,
     AnimeProjectUpdate,
     AnimePublicationCreate,
+    AnimePublicationLibraryItem,
     AnimePublicationRead,
+    AnimePublicationTranscriptCue,
     AnimeRenderCreate,
     AnimeRenderRead,
     AnimeRenderReview,
@@ -44,8 +47,11 @@ from app.anime_studio.services import (
     delete_scene,
     get_project,
     get_project_publication,
+    get_publication_caption_cues,
+    get_publication_transcript,
     import_comic_storyboard,
     list_media_generations,
+    list_project_publications,
     list_projects,
     publish_project,
     reorder_timeline,
@@ -56,6 +62,7 @@ from app.anime_studio.services import (
     review_media_generation,
     review_render,
     split_scene,
+    transcript_as_webvtt,
     update_audio_track,
     update_caption,
     update_project,
@@ -382,3 +389,44 @@ async def get_publication(
     actor: ActorContext = Depends(resolve_actor_context),
 ):
     return await get_project_publication(session, actor=actor, project_id=project_id)
+
+
+@router.get("/publications", response_model=list[AnimePublicationLibraryItem])
+async def get_publications(
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+):
+    return await list_project_publications(session, actor=actor)
+
+
+@router.get(
+    "/publications/{project_id}/transcript",
+    response_model=list[AnimePublicationTranscriptCue],
+)
+async def get_transcript(
+    project_id: UUID,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+):
+    return await get_publication_transcript(
+        session,
+        actor=actor,
+        project_id=project_id,
+    )
+
+
+@router.get("/publications/{project_id}/captions.vtt", response_class=PlainTextResponse)
+async def get_captions_vtt(
+    project_id: UUID,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+) -> PlainTextResponse:
+    cues = await get_publication_caption_cues(
+        session,
+        actor=actor,
+        project_id=project_id,
+    )
+    return PlainTextResponse(
+        transcript_as_webvtt(cues),
+        media_type="text/vtt; charset=utf-8",
+    )
