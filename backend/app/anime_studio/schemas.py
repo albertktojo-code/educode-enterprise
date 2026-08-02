@@ -226,6 +226,9 @@ class AnimeMediaGenerationRead(BaseModel):
     estimated_cost: float
     review_required: bool
     review_decision: str
+    output_asset_id: UUID | None
+    output_asset_file_id: UUID | None
+    provider: str
     error_message: str
     created_at: datetime
     completed_at: datetime | None

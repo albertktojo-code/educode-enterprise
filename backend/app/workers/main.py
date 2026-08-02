@@ -6,12 +6,13 @@ import json
 import os
 import socket
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 
+from app.anime_studio.generation import generate_anime_media_job
 from app.anime_studio.rendering import render_anime_job
 from app.core.config import get_settings
 from app.db.session import AsyncSessionFactory
@@ -245,6 +246,8 @@ async def process_job(job_id: UUID, worker_name: str) -> None:
         await update_heartbeat(worker_name, job.queue_name, status="busy", current_job_id=job.id)
         if job.job_type == "anime_render":
             result = await render_anime_job(job, progress)
+        elif job.job_type == "media_generation" and job.module_name == "anime_studio":
+            result = await generate_anime_media_job(job, progress)
         elif job.job_type == "platform_restore_test":
             await progress(10, "Validando checksum e arquivo")
             async with AsyncSessionFactory() as restore_session:

@@ -1,9 +1,11 @@
+import shutil
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
 
+from app.anime_studio.generation import _run_ffmpeg, generated_media_contract
 from app.anime_studio.models import AnimeProject
 from app.anime_studio.rendering import _scene_filter, _srt_timestamp
 from app.anime_studio.schemas import (
@@ -115,6 +117,42 @@ def test_media_generation_cost_uses_kind_and_duration() -> None:
     assert estimate_media_generation_cost("image", 30000) == 0.04
     assert estimate_media_generation_cost("voice", 10000) == 0.06
     assert estimate_media_generation_cost("lip_sync", 5000) == 0.06
+
+
+def test_generated_media_contract_selects_real_file_formats() -> None:
+    assert generated_media_contract("image", 5000)["mime_type"] == "image/png"
+    assert generated_media_contract("animation", 5000)["media_kind"] == "video"
+    assert generated_media_contract("voice", 5000)["suffix"] == ".wav"
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg not installed")
+async def test_internal_provider_generates_valid_image_video_and_audio(tmp_path) -> None:
+    outputs = {
+        "image": tmp_path / "image.png",
+        "animation": tmp_path / "animation.mp4",
+        "voice": tmp_path / "voice.wav",
+    }
+    for kind, output in outputs.items():
+        await _run_ffmpeg(kind, 500, output)
+        assert output.is_file()
+        assert output.stat().st_size > 0
+
+
+def test_storage_saves_generated_artifact_with_signature_validation(tmp_path) -> None:
+    storage = AnimeMediaStorage(tmp_path / "storage", max_size_bytes=1024)
+    source = tmp_path / "voice.wav"
+    source.write_bytes(b"RIFF" + (8).to_bytes(4, "little") + b"WAVEfmt ")
+    saved = storage.save_generated(
+        source,
+        uuid4(),
+        media_kind="audio",
+        file_name="voice.wav",
+        mime_type="audio/wav",
+    )
+    assert not source.exists()
+    assert storage.resolve(saved.storage_key).is_file()
+    assert saved.mime_type == "audio/wav"
 
 
 def test_render_snapshot_is_versioned_and_references_canonical_assets() -> None:
