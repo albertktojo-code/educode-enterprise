@@ -311,6 +311,13 @@
 .anime-storyboard-import label { color: #ddd6fe; font-size: .78rem; font-weight: 800; }
 .anime-storyboard-import input { min-width: 0; padding: 10px 11px; border: 1px solid rgba(255,255,255,.13); border-radius: 10px; color: white; background: rgba(5,4,14,.72); }
 .anime-storyboard-import small { grid-column: 2 / -1; }
+.anime-scene-properties { display: grid; gap: 10px; margin-bottom: 14px; padding: 12px; border: 1px solid rgba(34,211,238,.22); border-radius: 12px; background: rgba(8,145,178,.06); }
+.anime-scene-properties > form:first-child { display: grid; grid-template-columns: minmax(180px,1.5fr) repeat(4,minmax(100px,1fr)) auto; align-items: end; gap: 8px; }
+.anime-scene-properties label { display: grid; gap: 5px; color: #ddd6fe; font-size: .72rem; font-weight: 800; }
+.anime-scene-properties input, .anime-scene-properties select { min-width: 0; padding: 9px 10px; border: 1px solid rgba(255,255,255,.13); border-radius: 9px; color: white; background: rgba(5,4,14,.72); }
+.anime-timeline-actions, .anime-split-scene { display: flex; align-items: end; gap: 8px; }
+.anime-split-scene { justify-content: flex-end; }
+.anime-split-scene label { max-width: 150px; }
 .anime-scene-strip { display: flex; gap: 12px; padding: 2px 2px 10px; overflow-x: auto; scroll-snap-type: x proximity; }
 .anime-scene-strip > button { display: grid; min-width: 210px; max-width: 240px; padding: 0; overflow: hidden; border: 1px solid var(--anime-line); border-radius: 14px; color: var(--anime-ink); background: rgba(255,255,255,.035); text-align: left; cursor: pointer; scroll-snap-align: start; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
 .anime-scene-strip > button:hover,
@@ -417,6 +424,7 @@
   .anime-inspector { position: static; }
   .anime-storyboard-import { grid-template-columns: 1fr; }
   .anime-storyboard-import small { grid-column: auto; }
+  .anime-scene-properties > form:first-child { grid-template-columns: 1fr 1fr; }
   .anime-metrics { grid-template-columns: 1fr 1fr; }
   .anime-review-actions { grid-template-columns: 1fr 1fr; }
   .anime-review-actions > div { grid-column: 1 / -1; }

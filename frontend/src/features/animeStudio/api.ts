@@ -69,6 +69,15 @@ export const animeStudioApi = {
       `/anime-studio/projects/${projectId}/scenes/${sceneId}`,
       input,
     ),
+  reorderTimeline: (projectId: string, sceneIds: string[]) =>
+    api.put<AnimeProject>(`/anime-studio/projects/${projectId}/timeline`, {
+      scene_ids: sceneIds,
+    }),
+  splitScene: (projectId: string, sceneId: string, splitAtMs: number) =>
+    api.post<{ first: AnimeScene; second: AnimeScene }>(
+      `/anime-studio/projects/${projectId}/scenes/${sceneId}/split`,
+      { split_at_ms: splitAtMs },
+    ),
   deleteScene: (projectId: string, sceneId: string) =>
     api.delete<void>(`/anime-studio/projects/${projectId}/scenes/${sceneId}`),
   createAudioTrack: (projectId: string, input: Record<string, unknown>) =>

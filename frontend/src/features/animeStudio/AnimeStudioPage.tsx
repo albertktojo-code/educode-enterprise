@@ -252,6 +252,7 @@ export function AnimeStudioPage() {
   const [project, setProject] = useState<AnimeProject | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null)
+  const [draggedSceneId, setDraggedSceneId] = useState<string | null>(null)
   const [mediaGenerations, setMediaGenerations] = useState<AnimeMediaGeneration[]>([])
   const [tab, setTab] = useState<StudioTab>('storyboard')
   const [loading, setLoading] = useState(true)
@@ -417,6 +418,64 @@ export function AnimeStudioPage() {
       const result = await animeStudioApi.importStoryboard(project.id, comicId)
       setSelectedSceneId(result.scenes[0]?.id ?? selectedSceneId)
     }, 'Storyboard sincronizado com a HQ.')
+  }
+
+  async function saveSceneProperties(data: FormData) {
+    if (!project || !selectedScene) return
+    await execute(
+      () => animeStudioApi.updateScene(project.id, selectedScene.id, {
+        title: String(data.get('title') ?? selectedScene.title),
+        duration_ms: Number(data.get('duration') ?? 5) * 1000,
+        camera_settings: {
+          ...selectedScene.camera_settings,
+          shot_type: String(data.get('shot') ?? 'medium'),
+          movement: String(data.get('camera') ?? 'static'),
+        },
+        transition_settings: {
+          ...selectedScene.transition_settings,
+          type: String(data.get('transition') ?? 'cut'),
+        },
+      }).then(() => undefined),
+      'Cena atualizada na timeline.',
+    )
+  }
+
+  async function moveScene(sceneId: string, offset: number) {
+    if (!project) return
+    const ids = project.scenes.map((scene) => scene.id)
+    const from = ids.indexOf(sceneId)
+    const to = Math.max(0, Math.min(ids.length - 1, from + offset))
+    if (from === to) return
+    ids.splice(to, 0, ids.splice(from, 1)[0])
+    await execute(
+      () => animeStudioApi.reorderTimeline(project.id, ids).then(() => undefined),
+      'Timeline reorganizada.',
+    )
+  }
+
+  async function dropScene(targetId: string) {
+    if (!project || !draggedSceneId || draggedSceneId === targetId) return
+    const ids = project.scenes.map((scene) => scene.id)
+    const from = ids.indexOf(draggedSceneId)
+    const to = ids.indexOf(targetId)
+    ids.splice(to, 0, ids.splice(from, 1)[0])
+    setDraggedSceneId(null)
+    await execute(
+      () => animeStudioApi.reorderTimeline(project.id, ids).then(() => undefined),
+      'Timeline reorganizada.',
+    )
+  }
+
+  async function splitSelectedScene(data: FormData) {
+    if (!project || !selectedScene) return
+    await execute(async () => {
+      const result = await animeStudioApi.splitScene(
+        project.id,
+        selectedScene.id,
+        Number(data.get('split_at') ?? 1) * 1000,
+      )
+      setSelectedSceneId(result.second.id)
+    }, 'Cena dividida e preservada em duas partes.')
   }
 
   async function requestMediaGeneration(data: FormData) {
@@ -662,15 +721,46 @@ export function AnimeStudioPage() {
                   <button className="anime-button ghost" disabled={busy} type="submit">Importar cenas</button>
                   <small>Cada quadro vira uma cena; novas importações ignoram quadros já sincronizados.</small>
                 </form>
+                {selectedScene ? (
+                  <div className="anime-scene-properties">
+                    <form key={selectedScene.id} onSubmit={(event) => {
+                      event.preventDefault()
+                      void saveSceneProperties(new FormData(event.currentTarget))
+                    }}>
+                      <label>Título<input name="title" defaultValue={selectedScene.title} required /></label>
+                      <label>Duração (s)<input name="duration" type="number" min="0.5" max="600" step="0.5" defaultValue={selectedScene.duration_ms / 1000} /></label>
+                      <label>Plano<select name="shot" defaultValue={String(selectedScene.camera_settings.shot_type ?? 'medium')}><option value="wide">Geral</option><option value="medium">Médio</option><option value="close_up">Close-up</option><option value="detail">Detalhe</option></select></label>
+                      <label>Câmera<select name="camera" defaultValue={String(selectedScene.camera_settings.movement ?? 'static')}><option value="static">Estática</option><option value="pan">Panorâmica</option><option value="zoom_in">Zoom in</option><option value="zoom_out">Zoom out</option></select></label>
+                      <label>Transição<select name="transition" defaultValue={String(selectedScene.transition_settings.type ?? 'cut')}><option value="cut">Corte</option><option value="fade">Fade</option><option value="dissolve">Dissolver</option></select></label>
+                      <button type="submit" className="anime-button primary" disabled={busy}>Salvar cena</button>
+                    </form>
+                    <div className="anime-timeline-actions" aria-label="Reordenar cena selecionada">
+                      <button type="button" className="anime-button ghost" disabled={busy || selectedScene.position === 1} onClick={() => void moveScene(selectedScene.id, -1)}>← Mover antes</button>
+                      <button type="button" className="anime-button ghost" disabled={busy || selectedScene.position === project.scenes.length} onClick={() => void moveScene(selectedScene.id, 1)}>Mover depois →</button>
+                    </div>
+                    <form className="anime-split-scene" onSubmit={(event) => {
+                      event.preventDefault()
+                      void splitSelectedScene(new FormData(event.currentTarget))
+                    }}>
+                      <label>Dividir em (s)<input name="split_at" type="number" min="0.5" max={(selectedScene.duration_ms - 500) / 1000} step="0.5" defaultValue={Math.max(0.5, Math.floor(selectedScene.duration_ms / 2000))} /></label>
+                      <button type="submit" className="anime-button ghost" disabled={busy || selectedScene.duration_ms < 1000}>Dividir cena</button>
+                    </form>
+                  </div>
+                ) : null}
                 {project.scenes.length ? (
                   <div className="anime-scene-strip" role="list">
                     {project.scenes.map((scene: AnimeScene) => (
                       <button
                         type="button"
                         role="listitem"
+                        draggable
                         key={scene.id}
                         className={scene.id === selectedSceneId ? 'is-active' : ''}
                         onClick={() => setSelectedSceneId(scene.id)}
+                        onDragStart={() => setDraggedSceneId(scene.id)}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => void dropScene(scene.id)}
+                        aria-label={`Cena ${scene.position}: ${scene.title}. Arraste para reordenar.`}
                       >
                         <div className="anime-scene-thumb"><SecureMedia fileId={scene.visual_asset_file_id} title={scene.title} /></div>
                         <span><b>{String(scene.position).padStart(2, '0')}</b><strong>{scene.title}</strong><small>{formatDuration(scene.duration_ms)}</small></span>

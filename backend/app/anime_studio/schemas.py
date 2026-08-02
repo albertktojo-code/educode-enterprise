@@ -81,6 +81,21 @@ class AnimeSceneUpdate(BaseModel):
     status: SceneStatus | None = None
 
 
+class AnimeTimelineReorder(BaseModel):
+    scene_ids: list[UUID] = Field(min_length=1, max_length=1000)
+
+    @model_validator(mode="after")
+    def validate_unique_scenes(self) -> AnimeTimelineReorder:
+        if len(set(self.scene_ids)) != len(self.scene_ids):
+            raise ValueError("scene_ids nao pode conter duplicatas")
+        return self
+
+
+class AnimeSceneSplit(BaseModel):
+    split_at_ms: int = Field(ge=500, le=599500)
+    second_title: str | None = Field(default=None, min_length=1, max_length=180)
+
+
 class AnimeStoryboardImport(BaseModel):
     comic_id: UUID
 
@@ -205,6 +220,11 @@ class AnimeSceneRead(BaseModel):
     approved_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class AnimeSceneSplitRead(BaseModel):
+    first: AnimeSceneRead
+    second: AnimeSceneRead
 
 
 class AnimeStoryboardImportRead(BaseModel):
