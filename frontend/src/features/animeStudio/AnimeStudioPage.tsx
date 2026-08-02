@@ -700,13 +700,18 @@ export function AnimeStudioPage() {
                         <b>{job.progress_percent}%</b>
                       </div>
                       <div className="anime-progress" aria-label={`${job.progress_percent}% concluído`}><i style={{ width: `${job.progress_percent}%` }} /></div>
+                      {job.output_asset_file_id ? (
+                        <div className="anime-generation-preview">
+                          <SecureMedia fileId={job.output_asset_file_id} title={generationLabels[job.kind]} controls />
+                        </div>
+                      ) : null}
                       <p>{job.error_message || job.current_step}</p>
                       {job.status === 'completed' && job.review_decision === 'pending' ? (
                         <footer>
                           <button type="button" className="anime-button ghost" disabled={busy} onClick={() => void reviewMediaGeneration(job, 'rejected')}>Solicitar nova versão</button>
                           <button type="button" className="anime-button primary" disabled={busy} onClick={() => void reviewMediaGeneration(job, 'approved')}>Aprovar mídia</button>
                         </footer>
-                      ) : <small>Revisão: {job.review_decision === 'pending' ? 'aguardando resultado' : job.review_decision}</small>}
+                      ) : <small>Revisão: {job.review_decision === 'pending' ? 'aguardando resultado' : job.review_decision}{job.provider ? ` · ${job.provider}` : ''}</small>}
                     </article>
                   )) : <div className="anime-empty-state"><span aria-hidden="true">✦</span><h3>Nenhuma mídia solicitada</h3><p>Escolha o tipo, a cena e envie uma direção criativa.</p></div>}
                 </div>

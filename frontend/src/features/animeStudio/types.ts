@@ -161,6 +161,9 @@ export interface AnimeMediaGeneration {
   estimated_cost: number
   review_required: boolean
   review_decision: string
+  output_asset_id: string | null
+  output_asset_file_id: string | null
+  provider: string
   error_message: string
   created_at: string
   completed_at: string | null

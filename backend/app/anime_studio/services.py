@@ -612,7 +612,8 @@ def estimate_media_generation_cost(kind: str, duration_ms: int | None) -> float:
 
 def media_generation_read(job: BackgroundJob) -> dict[str, Any]:
     snapshot = dict(job.input_snapshot or {})
-    review = dict((job.result_reference or {}).get("human_review") or {})
+    result = dict(job.result_reference or {})
+    review = dict(result.get("human_review") or {})
     return {
         "id": job.id,
         "project_id": UUID(str(snapshot["project_id"])),
@@ -624,6 +625,9 @@ def media_generation_read(job: BackgroundJob) -> dict[str, Any]:
         "estimated_cost": float(snapshot.get("estimated_cost") or 0),
         "review_required": bool(snapshot.get("review_required", True)),
         "review_decision": str(review.get("decision") or "pending"),
+        "output_asset_id": result.get("output_asset_id"),
+        "output_asset_file_id": result.get("output_asset_file_id"),
+        "provider": str(result.get("provider") or ""),
         "error_message": job.error_message,
         "created_at": job.created_at,
         "completed_at": job.completed_at,
@@ -787,8 +791,69 @@ async def review_media_generation(
         raise HTTPException(status_code=404, detail="Geracao de midia nao encontrada")
     if job.status != "completed":
         raise HTTPException(status_code=409, detail="A geracao ainda nao foi concluida")
+    if (job.result_reference or {}).get("human_review"):
+        raise HTTPException(status_code=409, detail="Esta geracao ja foi revisada")
+    result = dict(job.result_reference or {})
+    output_file_id = result.get("output_asset_file_id")
+    if not output_file_id:
+        raise HTTPException(status_code=409, detail="A geracao nao produziu um artefato")
+    asset_file = await session.scalar(
+        select(InstitutionalAssetFile)
+        .join(InstitutionalAsset)
+        .where(
+            InstitutionalAssetFile.id == UUID(str(output_file_id)),
+            InstitutionalAsset.organization_id == actor.organization_id,
+        )
+        .options(selectinload(InstitutionalAssetFile.asset))
+    )
+    if asset_file is None:
+        raise HTTPException(status_code=404, detail="Artefato gerado nao encontrado")
+    snapshot = dict(job.input_snapshot or {})
+    project = await get_project(
+        session,
+        organization_id=actor.organization_id,
+        project_id=project_id,
+        for_update=True,
+    )
+    if data.decision == "approved":
+        asset_file.asset.status = InstitutionalAssetStatus.APPROVED
+        asset_file.asset.approved_by_user_id = actor.user_id
+        kind = str(snapshot["kind"])
+        scene_id = snapshot.get("scene_id")
+        if kind in {"image", "animation", "lip_sync"} and scene_id:
+            scene = await _get_scene(session, project=project, scene_id=UUID(str(scene_id)))
+            scene.visual_asset_file_id = asset_file.id
+            scene.revision += 1
+        elif kind in {"voice", "music", "sfx"}:
+            existing_track = await session.scalar(
+                select(AnimeAudioTrack.id).where(
+                    AnimeAudioTrack.project_id == project.id,
+                    AnimeAudioTrack.asset_file_id == asset_file.id,
+                )
+            )
+            if existing_track is None:
+                session.add(
+                    AnimeAudioTrack(
+                        organization_id=actor.organization_id,
+                        project_id=project.id,
+                        scene_id=UUID(str(scene_id)) if scene_id else None,
+                        track_kind={"voice": "dialogue", "music": "music", "sfx": "sfx"}[kind],
+                        label=f"Geracao {kind} {str(job.id)[:8]}",
+                        language=project.language,
+                        asset_file_id=asset_file.id,
+                        transcript=str(snapshot.get("prompt") or "") if kind == "voice" else "",
+                        speaker=str(snapshot.get("voice_name") or ""),
+                        start_ms=0,
+                        duration_ms=int(snapshot.get("duration_ms") or 5000),
+                        created_by_user_id=actor.user_id,
+                    )
+                )
+        project.revision += 1
+        project.status = "draft"
+    else:
+        asset_file.asset.status = InstitutionalAssetStatus.REJECTED
     job.result_reference = {
-        **dict(job.result_reference or {}),
+        **result,
         "human_review": {
             "decision": data.decision,
             "notes": data.notes,

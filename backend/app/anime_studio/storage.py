@@ -153,5 +153,43 @@ class AnimeMediaStorage:
             mime_type="video/mp4",
         )
 
+    def save_generated(
+        self,
+        source: Path,
+        organization_id: UUID,
+        *,
+        media_kind: str,
+        file_name: str,
+        mime_type: str,
+    ) -> StoredAnimeMedia:
+        if media_kind not in MEDIA_TYPES:
+            raise InvalidAnimeMediaError("Tipo de midia gerada invalido")
+        suffix = Path(file_name).suffix.lower()
+        extensions, mime_types = MEDIA_TYPES[media_kind]
+        if suffix not in extensions or mime_type not in mime_types:
+            raise InvalidAnimeMediaError("Formato de midia gerada invalido")
+        if not source.is_file() or source.stat().st_size == 0:
+            raise InvalidAnimeMediaError("O provedor nao gerou um arquivo valido")
+        storage_key = f"{organization_id}/anime/generated/{uuid4()}{suffix}"
+        destination = self.resolve(storage_key)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(source, destination)
+        try:
+            self._validate_signature(destination, suffix)
+            digest = hashlib.sha256()
+            with destination.open("rb") as generated:
+                while chunk := generated.read(1024 * 1024):
+                    digest.update(chunk)
+        except Exception:
+            destination.unlink(missing_ok=True)
+            raise
+        return StoredAnimeMedia(
+            storage_key=storage_key,
+            file_name=file_name,
+            size_bytes=destination.stat().st_size,
+            checksum_sha256=digest.hexdigest(),
+            mime_type=mime_type,
+        )
+
     def delete(self, storage_key: str) -> None:
         self.resolve(storage_key).unlink(missing_ok=True)

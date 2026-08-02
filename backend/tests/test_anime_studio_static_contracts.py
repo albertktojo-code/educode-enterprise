@@ -102,3 +102,15 @@ def test_media_generation_reuses_jobs_quotas_and_human_review() -> None:
     assert 'action="anime.media_generation.queued"' in services
     assert "require_reviewer(actor)" in services
     assert '"/projects/{project_id}/media-generations"' in router
+
+
+def test_anime_media_worker_creates_canonical_reviewable_artifacts() -> None:
+    generation = (BACKEND / "app/anime_studio/generation.py").read_text(encoding="utf-8")
+    worker = (BACKEND / "app/workers/main.py").read_text(encoding="utf-8")
+    services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
+    assert "asyncio.create_subprocess_exec" in generation
+    assert "InstitutionalAssetFile(" in generation
+    assert "InstitutionalAssetStatus.IN_REVIEW" in generation
+    assert "generate_anime_media_job(job, progress)" in worker
+    assert "scene.visual_asset_file_id = asset_file.id" in services
+    assert "AnimeAudioTrack(" in services

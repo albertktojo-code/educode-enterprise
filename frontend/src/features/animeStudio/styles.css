@@ -334,6 +334,9 @@
 .anime-generation-heading small, .anime-generation-job > small { color: var(--anime-muted); }
 .anime-generation-heading b { color: #c4b5fd; font-size: .78rem; }
 .anime-generation-job p { margin: 0; color: var(--anime-muted); font-size: .78rem; }
+.anime-generation-preview { height: 180px; overflow: hidden; border-radius: 10px; background: #05040b; }
+.anime-generation-preview .anime-media-placeholder { min-height: 180px; }
+.anime-generation-preview .anime-audio-player { width: calc(100% - 20px); margin: 65px 10px; }
 .anime-generation-job footer { display: flex; justify-content: flex-end; gap: 8px; }
 .anime-progress { height: 6px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.08); }
 .anime-progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7c3aed, #22d3ee); transition: width .3s ease; }
