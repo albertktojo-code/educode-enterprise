@@ -9,10 +9,15 @@ from app.anime_studio.rendering import _scene_filter, _srt_timestamp
 from app.anime_studio.schemas import (
     AnimeAudioTrackCreate,
     AnimeCaptionCreate,
+    AnimeMediaGenerationCreate,
     AnimeProjectCreate,
     AnimeStoryboardImport,
 )
-from app.anime_studio.services import render_snapshot, storyboard_scene_inputs
+from app.anime_studio.services import (
+    estimate_media_generation_cost,
+    render_snapshot,
+    storyboard_scene_inputs,
+)
 from app.anime_studio.storage import AnimeMediaStorage, InvalidAnimeMediaError
 
 
@@ -58,19 +63,21 @@ def test_storyboard_import_maps_hq_panel_into_timed_anime_scene() -> None:
     inputs, skipped = storyboard_scene_inputs(
         {
             "comic_id": str(request.comic_id),
-            "scenes": [{
-                "sequence_number": 2,
-                "page_id": str(page_id),
-                "panel_id": str(panel_id),
-                "scene_summary": "Ada encontra uma pista",
-                "estimated_duration_seconds": 7,
-                "shot_type": "close_up",
-                "camera_direction": "zoom_in",
-                "transition": "dissolve",
-                "dialogue": [{"speaker": "Ada", "text": "Observe o padrao."}],
-                "pedagogical_goal": "Reconhecer padroes",
-                "ct_pillar_codes": ["pattern_recognition"],
-            }],
+            "scenes": [
+                {
+                    "sequence_number": 2,
+                    "page_id": str(page_id),
+                    "panel_id": str(panel_id),
+                    "scene_summary": "Ada encontra uma pista",
+                    "estimated_duration_seconds": 7,
+                    "shot_type": "close_up",
+                    "camera_direction": "zoom_in",
+                    "transition": "dissolve",
+                    "dialogue": [{"speaker": "Ada", "text": "Observe o padrao."}],
+                    "pedagogical_goal": "Reconhecer padroes",
+                    "ct_pillar_codes": ["pattern_recognition"],
+                }
+            ],
         },
         start_position=4,
     )
@@ -90,6 +97,24 @@ def test_storyboard_import_skips_panels_already_on_timeline() -> None:
     )
     assert inputs == []
     assert skipped == 1
+
+
+def test_media_generation_contract_supports_all_audiovisual_kinds() -> None:
+    scene_id = uuid4()
+    for kind in ("image", "animation", "voice", "lip_sync", "music", "sfx"):
+        request = AnimeMediaGenerationCreate(
+            scene_id=scene_id,
+            kind=kind,
+            prompt="Direcao criativa segura",
+            duration_ms=8000,
+        )
+        assert request.kind == kind
+
+
+def test_media_generation_cost_uses_kind_and_duration() -> None:
+    assert estimate_media_generation_cost("image", 30000) == 0.04
+    assert estimate_media_generation_cost("voice", 10000) == 0.06
+    assert estimate_media_generation_cost("lip_sync", 5000) == 0.06
 
 
 def test_render_snapshot_is_versioned_and_references_canonical_assets() -> None:

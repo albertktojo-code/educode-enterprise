@@ -3,6 +3,8 @@ import type {
   AnimeAudioTrack,
   AnimeCaptionCue,
   AnimeMediaUpload,
+  AnimeMediaGeneration,
+  AnimeMediaGenerationKind,
   AnimeProject,
   AnimeProjectSummary,
   AnimeRender,
@@ -37,6 +39,31 @@ export const animeStudioApi = {
       `/anime-studio/projects/${projectId}/storyboard/from-comic`,
       { comic_id: comicId },
     ),
+  listMediaGenerations: (projectId: string) =>
+    api.get<AnimeMediaGeneration[]>(
+      `/anime-studio/projects/${projectId}/media-generations`,
+    ),
+  requestMediaGeneration: (
+    projectId: string,
+    input: {
+      scene_id: string | null
+      kind: AnimeMediaGenerationKind
+      prompt: string
+      duration_ms: number
+      voice_name: string
+    },
+  ) => api.post<AnimeMediaGeneration>(
+    `/anime-studio/projects/${projectId}/media-generations`,
+    input,
+  ),
+  reviewMediaGeneration: (
+    projectId: string,
+    jobId: string,
+    decision: 'approved' | 'rejected',
+  ) => api.post<AnimeMediaGeneration>(
+    `/anime-studio/projects/${projectId}/media-generations/${jobId}/review`,
+    { decision, notes: '' },
+  ),
   updateScene: (projectId: string, sceneId: string, input: Record<string, unknown>) =>
     api.patch<AnimeScene>(
       `/anime-studio/projects/${projectId}/scenes/${sceneId}`,

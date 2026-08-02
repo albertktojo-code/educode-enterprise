@@ -24,6 +24,8 @@ from app.anime_studio.schemas import (
     AnimeAudioTrackUpdate,
     AnimeCaptionCreate,
     AnimeCaptionUpdate,
+    AnimeMediaGenerationCreate,
+    AnimeMediaGenerationReview,
     AnimeProjectCreate,
     AnimeProjectUpdate,
     AnimeRenderCreate,
@@ -51,6 +53,14 @@ from app.services.operations import create_job, mark_queued
 
 EDITOR_ROLES = {"OWNER", "ADMIN", "ORG_ADMIN", "TEACHER", "EDITOR"}
 REVIEWER_ROLES = {"OWNER", "ADMIN", "ORG_ADMIN", "TEACHER", "REVIEWER"}
+MEDIA_GENERATION_RATES = {
+    "image": 0.04,
+    "animation": 0.02,
+    "voice": 0.006,
+    "lip_sync": 0.012,
+    "music": 0.01,
+    "sfx": 0.005,
+}
 PROJECT_LOAD_OPTIONS = (
     selectinload(AnimeProject.scenes),
     selectinload(AnimeProject.audio_tracks),
@@ -366,7 +376,9 @@ async def create_scene(
 
 
 def storyboard_scene_inputs(
-    storyboard: dict[str, Any], *, start_position: int = 1,
+    storyboard: dict[str, Any],
+    *,
+    start_position: int = 1,
     excluded_panel_ids: set[UUID] | None = None,
 ) -> tuple[list[AnimeSceneCreate], int]:
     """Translate the canonical HQ storyboard into canonical Anime scenes."""
@@ -374,9 +386,17 @@ def storyboard_scene_inputs(
     scenes: list[AnimeSceneCreate] = []
     skipped = 0
     continuity_keys = (
-        "page_number", "panel_number", "emotion", "pacing", "plot_function",
-        "previous_panel_summary", "next_panel_hook", "initial_state", "final_state",
-        "alt_text", "audio_description",
+        "page_number",
+        "panel_number",
+        "emotion",
+        "pacing",
+        "plot_function",
+        "previous_panel_summary",
+        "next_panel_hook",
+        "initial_state",
+        "final_state",
+        "alt_text",
+        "audio_description",
     )
     for source in storyboard.get("scenes", []):
         panel_id = UUID(str(source["panel_id"]))
@@ -385,53 +405,64 @@ def storyboard_scene_inputs(
             continue
         summary = str(source.get("scene_summary") or "Cena importada da HQ").strip()
         dialogue = "\n".join(
-            f'{item.get("speaker") or "Narrador"}: {item.get("text") or ""}'
-            for item in source.get("dialogue", []) if item.get("text")
+            f"{item.get('speaker') or 'Narrador'}: {item.get('text') or ''}"
+            for item in source.get("dialogue", [])
+            if item.get("text")
         )
         continuity = {key: source.get(key) for key in continuity_keys}
         continuity["source_comic_id"] = storyboard.get("comic_id")
-        scenes.append(AnimeSceneCreate(
-            position=start_position + len(scenes),
-            title=f'Cena {source.get("sequence_number") or len(scenes) + 1}: {summary}'[:180],
-            duration_ms=int(source.get("estimated_duration_seconds") or 5) * 1000,
-            source_comic_page_id=UUID(str(source["page_id"])),
-            source_comic_panel_id=panel_id,
-            screenplay_text=summary if not dialogue else f"{summary}\n\n{dialogue}",
-            visual_prompt=str(source.get("action") or summary),
-            camera_settings={
-                "shot_type": source.get("shot_type") or "medium",
-                "movement": source.get("camera_direction") or "static",
-            },
-            transition_settings={"type": source.get("transition") or "cut"},
-            continuity_data=continuity,
-            pedagogical_metadata={
-                key: source.get(key)
-                for key in (
-                    "narrative_goal",
-                    "pedagogical_goal",
-                    "ct_pillar_codes",
-                )
-            },
-        ))
+        scenes.append(
+            AnimeSceneCreate(
+                position=start_position + len(scenes),
+                title=f"Cena {source.get('sequence_number') or len(scenes) + 1}: {summary}"[:180],
+                duration_ms=int(source.get("estimated_duration_seconds") or 5) * 1000,
+                source_comic_page_id=UUID(str(source["page_id"])),
+                source_comic_panel_id=panel_id,
+                screenplay_text=summary if not dialogue else f"{summary}\n\n{dialogue}",
+                visual_prompt=str(source.get("action") or summary),
+                camera_settings={
+                    "shot_type": source.get("shot_type") or "medium",
+                    "movement": source.get("camera_direction") or "static",
+                },
+                transition_settings={"type": source.get("transition") or "cut"},
+                continuity_data=continuity,
+                pedagogical_metadata={
+                    key: source.get(key)
+                    for key in (
+                        "narrative_goal",
+                        "pedagogical_goal",
+                        "ct_pillar_codes",
+                    )
+                },
+            )
+        )
     return scenes, skipped
 
 
 async def import_comic_storyboard(
-    session: AsyncSession, *, actor: ActorContext, project_id: UUID,
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
     data: AnimeStoryboardImport,
 ) -> dict[str, Any]:
     require_editor(actor)
     project = await get_project(
-        session, organization_id=actor.organization_id,
-        project_id=project_id, for_update=True,
+        session,
+        organization_id=actor.organization_id,
+        project_id=project_id,
+        for_update=True,
     )
     comic = await load_comic(
-        session, organization_id=actor.organization_id, comic_id=data.comic_id,
+        session,
+        organization_id=actor.organization_id,
+        comic_id=data.comic_id,
     )
     if comic is None:
         raise HTTPException(status_code=404, detail="HQ nao encontrada")
     existing_panel_ids = {
-        scene.source_comic_panel_id for scene in project.scenes
+        scene.source_comic_panel_id
+        for scene in project.scenes
         if scene.source_comic_panel_id is not None
     }
     inputs, skipped = storyboard_scene_inputs(
@@ -439,12 +470,15 @@ async def import_comic_storyboard(
         start_position=max((scene.position for scene in project.scenes), default=0) + 1,
         excluded_panel_ids=existing_panel_ids,
     )
-    created = [AnimeScene(
-        organization_id=actor.organization_id,
-        project_id=project.id,
-        created_by_user_id=actor.user_id,
-        **scene.model_dump(),
-    ) for scene in inputs]
+    created = [
+        AnimeScene(
+            organization_id=actor.organization_id,
+            project_id=project.id,
+            created_by_user_id=actor.user_id,
+            **scene.model_dump(),
+        )
+        for scene in inputs
+    ]
     session.add_all(created)
     if created:
         project.revision += 1
@@ -452,8 +486,11 @@ async def import_comic_storyboard(
         if project.generation_project_id is None:
             project.generation_project_id = comic.generation_project_id
     await append_domain_audit(
-        session, actor=actor, module_name="anime_studio",
-        action="anime.storyboard.imported", entity_type="anime_project",
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.storyboard.imported",
+        entity_type="anime_project",
         entity_id=project.id,
         details={
             "comic_id": str(comic.id),
@@ -566,6 +603,210 @@ async def delete_scene(
     project.status = "draft"
     await session.delete(scene)
     await session.commit()
+
+
+def estimate_media_generation_cost(kind: str, duration_ms: int | None) -> float:
+    units = 1.0 if kind == "image" else max((duration_ms or 5000) / 1000, 1)
+    return round(MEDIA_GENERATION_RATES[kind] * units, 4)
+
+
+def media_generation_read(job: BackgroundJob) -> dict[str, Any]:
+    snapshot = dict(job.input_snapshot or {})
+    review = dict((job.result_reference or {}).get("human_review") or {})
+    return {
+        "id": job.id,
+        "project_id": UUID(str(snapshot["project_id"])),
+        "scene_id": UUID(str(snapshot["scene_id"])) if snapshot.get("scene_id") else None,
+        "kind": snapshot["kind"],
+        "status": job.status,
+        "progress_percent": job.progress_percent,
+        "current_step": job.current_step,
+        "estimated_cost": float(snapshot.get("estimated_cost") or 0),
+        "review_required": bool(snapshot.get("review_required", True)),
+        "review_decision": str(review.get("decision") or "pending"),
+        "error_message": job.error_message,
+        "created_at": job.created_at,
+        "completed_at": job.completed_at,
+    }
+
+
+async def request_media_generation(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    data: AnimeMediaGenerationCreate,
+) -> dict[str, Any]:
+    require_editor(actor)
+    project = await get_project(
+        session,
+        organization_id=actor.organization_id,
+        project_id=project_id,
+        for_update=True,
+    )
+    scene = (
+        await _get_scene(session, project=project, scene_id=data.scene_id)
+        if data.scene_id
+        else None
+    )
+    if data.kind in {"image", "animation", "voice", "lip_sync"} and scene is None:
+        raise HTTPException(status_code=422, detail="Selecione uma cena para este tipo de midia")
+    duration_ms = data.duration_ms or (scene.duration_ms if scene else 5000)
+    prompt = data.prompt.strip()
+    if not prompt and scene is not None:
+        prompt = scene.visual_prompt or scene.screenplay_text
+    if not prompt:
+        prompt = project.synopsis or project.title
+    estimated_cost = estimate_media_generation_cost(data.kind, duration_ms)
+    step_labels = {
+        "image": [
+            "Preparando referencias",
+            "Gerando imagem",
+            "Validando seguranca",
+            "Aguardando revisao",
+        ],
+        "animation": [
+            "Preparando quadro",
+            "Gerando movimento",
+            "Validando continuidade",
+            "Aguardando revisao",
+        ],
+        "voice": ["Preparando roteiro", "Gerando voz", "Validando pronuncia", "Aguardando revisao"],
+        "lip_sync": [
+            "Analisando fonemas",
+            "Sincronizando labios",
+            "Validando tempo",
+            "Aguardando revisao",
+        ],
+        "music": [
+            "Preparando direcao musical",
+            "Gerando trilha",
+            "Normalizando audio",
+            "Aguardando revisao",
+        ],
+        "sfx": ["Preparando efeito", "Gerando audio", "Normalizando audio", "Aguardando revisao"],
+    }
+    snapshot = {
+        "project_id": str(project.id),
+        "scene_id": str(scene.id) if scene else None,
+        "kind": data.kind,
+        "prompt": prompt,
+        "duration_ms": duration_ms,
+        "voice_name": data.voice_name,
+        "settings": data.settings,
+        "estimated_cost": estimated_cost,
+        "review_required": True,
+        "steps": step_labels[data.kind],
+    }
+    try:
+        job, created = await create_job(
+            session,
+            organization_id=actor.organization_id,
+            user_id=actor.user_id,
+            job_type="media_generation",
+            module_name="anime_studio",
+            entity_type="anime_project",
+            entity_id=project.id,
+            priority=65,
+            total_steps=len(step_labels[data.kind]),
+            max_retries=2,
+            idempotency_key=data.idempotency_key,
+            input_snapshot=snapshot,
+            estimated_cost=estimated_cost,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    if created:
+        await mark_queued(session, job)
+        await append_domain_audit(
+            session,
+            actor=actor,
+            module_name="anime_studio",
+            action="anime.media_generation.queued",
+            entity_type="background_job",
+            entity_id=job.id,
+            details={
+                "project_id": str(project.id),
+                "scene_id": snapshot["scene_id"],
+                "kind": data.kind,
+                "estimated_cost": estimated_cost,
+            },
+        )
+    await session.commit()
+    return media_generation_read(job)
+
+
+async def list_media_generations(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+) -> list[dict[str, Any]]:
+    require_editor(actor)
+    await get_project(session, organization_id=actor.organization_id, project_id=project_id)
+    jobs = list(
+        (
+            await session.scalars(
+                select(BackgroundJob)
+                .where(
+                    BackgroundJob.organization_id == actor.organization_id,
+                    BackgroundJob.module_name == "anime_studio",
+                    BackgroundJob.entity_type == "anime_project",
+                    BackgroundJob.entity_id == project_id,
+                    BackgroundJob.job_type == "media_generation",
+                )
+                .order_by(BackgroundJob.created_at.desc())
+            )
+        ).all()
+    )
+    return [media_generation_read(job) for job in jobs]
+
+
+async def review_media_generation(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    job_id: UUID,
+    data: AnimeMediaGenerationReview,
+) -> dict[str, Any]:
+    require_reviewer(actor)
+    await get_project(session, organization_id=actor.organization_id, project_id=project_id)
+    job = await session.scalar(
+        select(BackgroundJob)
+        .where(
+            BackgroundJob.id == job_id,
+            BackgroundJob.organization_id == actor.organization_id,
+            BackgroundJob.module_name == "anime_studio",
+            BackgroundJob.entity_id == project_id,
+            BackgroundJob.job_type == "media_generation",
+        )
+        .with_for_update()
+    )
+    if job is None:
+        raise HTTPException(status_code=404, detail="Geracao de midia nao encontrada")
+    if job.status != "completed":
+        raise HTTPException(status_code=409, detail="A geracao ainda nao foi concluida")
+    job.result_reference = {
+        **dict(job.result_reference or {}),
+        "human_review": {
+            "decision": data.decision,
+            "notes": data.notes,
+            "reviewed_by_user_id": str(actor.user_id),
+            "reviewed_at": utcnow().isoformat(),
+        },
+    }
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action=f"anime.media_generation.{data.decision}",
+        entity_type="background_job",
+        entity_id=job.id,
+        details={"project_id": str(project_id), "notes": data.notes},
+    )
+    await session.commit()
+    return media_generation_read(job)
 
 
 async def create_audio_track(

@@ -13,6 +13,7 @@ SceneStatus = Literal["draft", "in_review", "approved", "rejected"]
 TrackKind = Literal["dialogue", "narration", "music", "sfx", "audio_description"]
 TrackStatus = Literal["draft", "ready", "approved", "rejected"]
 RenderDecision = Literal["approved", "rejected"]
+MediaGenerationKind = Literal["image", "animation", "voice", "lip_sync", "music", "sfx"]
 
 
 class AnimeProjectCreate(BaseModel):
@@ -82,6 +83,21 @@ class AnimeSceneUpdate(BaseModel):
 
 class AnimeStoryboardImport(BaseModel):
     comic_id: UUID
+
+
+class AnimeMediaGenerationCreate(BaseModel):
+    scene_id: UUID | None = None
+    kind: MediaGenerationKind
+    prompt: str = Field(default="", max_length=20000)
+    duration_ms: int | None = Field(default=None, ge=500, le=600000)
+    voice_name: str = Field(default="", max_length=120)
+    settings: dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=180)
+
+
+class AnimeMediaGenerationReview(BaseModel):
+    decision: RenderDecision
+    notes: str = Field(default="", max_length=10000)
 
 
 class AnimeAudioTrackCreate(BaseModel):
@@ -197,6 +213,22 @@ class AnimeStoryboardImportRead(BaseModel):
     skipped_count: int
     total_duration_ms: int
     scenes: list[AnimeSceneRead] = Field(default_factory=list)
+
+
+class AnimeMediaGenerationRead(BaseModel):
+    id: UUID
+    project_id: UUID
+    scene_id: UUID | None
+    kind: MediaGenerationKind
+    status: str
+    progress_percent: int
+    current_step: str
+    estimated_cost: float
+    review_required: bool
+    review_decision: str
+    error_message: str
+    created_at: datetime
+    completed_at: datetime | None
 
 
 class AnimeAudioTrackRead(BaseModel):
