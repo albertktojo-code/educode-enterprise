@@ -188,6 +188,12 @@ const studentGroups: NavGroup[] = [
     label: "Área do estudante",
     items: [
       {
+        to: "/aluno",
+        label: "Início",
+        icon: "⌂",
+        end: true,
+      },
+      {
         to: "/aluno/atividades",
         label: "Minhas atividades",
         icon: "✓",
