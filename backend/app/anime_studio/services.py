@@ -30,6 +30,7 @@ from app.anime_studio.schemas import (
     AnimeRenderReview,
     AnimeSceneCreate,
     AnimeSceneUpdate,
+    AnimeStoryboardImport,
 )
 from app.api.actor_context import ActorContext
 from app.models.assets import (
@@ -43,6 +44,8 @@ from app.models.operations import BackgroundJob
 from app.models.pedagogy import GenerationProject
 from app.models.rag import RagContext
 from app.models.studio import TeacherStudioDraft
+from app.services.comics.manager import load_comic
+from app.services.comics.preview import build_storyboard
 from app.services.consolidated_audit import append_domain_audit
 from app.services.operations import create_job, mark_queued
 
@@ -360,6 +363,116 @@ async def create_scene(
     await session.commit()
     await session.refresh(scene)
     return scene
+
+
+def storyboard_scene_inputs(
+    storyboard: dict[str, Any], *, start_position: int = 1,
+    excluded_panel_ids: set[UUID] | None = None,
+) -> tuple[list[AnimeSceneCreate], int]:
+    """Translate the canonical HQ storyboard into canonical Anime scenes."""
+    excluded = excluded_panel_ids or set()
+    scenes: list[AnimeSceneCreate] = []
+    skipped = 0
+    continuity_keys = (
+        "page_number", "panel_number", "emotion", "pacing", "plot_function",
+        "previous_panel_summary", "next_panel_hook", "initial_state", "final_state",
+        "alt_text", "audio_description",
+    )
+    for source in storyboard.get("scenes", []):
+        panel_id = UUID(str(source["panel_id"]))
+        if panel_id in excluded:
+            skipped += 1
+            continue
+        summary = str(source.get("scene_summary") or "Cena importada da HQ").strip()
+        dialogue = "\n".join(
+            f'{item.get("speaker") or "Narrador"}: {item.get("text") or ""}'
+            for item in source.get("dialogue", []) if item.get("text")
+        )
+        continuity = {key: source.get(key) for key in continuity_keys}
+        continuity["source_comic_id"] = storyboard.get("comic_id")
+        scenes.append(AnimeSceneCreate(
+            position=start_position + len(scenes),
+            title=f'Cena {source.get("sequence_number") or len(scenes) + 1}: {summary}'[:180],
+            duration_ms=int(source.get("estimated_duration_seconds") or 5) * 1000,
+            source_comic_page_id=UUID(str(source["page_id"])),
+            source_comic_panel_id=panel_id,
+            screenplay_text=summary if not dialogue else f"{summary}\n\n{dialogue}",
+            visual_prompt=str(source.get("action") or summary),
+            camera_settings={
+                "shot_type": source.get("shot_type") or "medium",
+                "movement": source.get("camera_direction") or "static",
+            },
+            transition_settings={"type": source.get("transition") or "cut"},
+            continuity_data=continuity,
+            pedagogical_metadata={
+                key: source.get(key)
+                for key in (
+                    "narrative_goal",
+                    "pedagogical_goal",
+                    "ct_pillar_codes",
+                )
+            },
+        ))
+    return scenes, skipped
+
+
+async def import_comic_storyboard(
+    session: AsyncSession, *, actor: ActorContext, project_id: UUID,
+    data: AnimeStoryboardImport,
+) -> dict[str, Any]:
+    require_editor(actor)
+    project = await get_project(
+        session, organization_id=actor.organization_id,
+        project_id=project_id, for_update=True,
+    )
+    comic = await load_comic(
+        session, organization_id=actor.organization_id, comic_id=data.comic_id,
+    )
+    if comic is None:
+        raise HTTPException(status_code=404, detail="HQ nao encontrada")
+    existing_panel_ids = {
+        scene.source_comic_panel_id for scene in project.scenes
+        if scene.source_comic_panel_id is not None
+    }
+    inputs, skipped = storyboard_scene_inputs(
+        build_storyboard(comic),
+        start_position=max((scene.position for scene in project.scenes), default=0) + 1,
+        excluded_panel_ids=existing_panel_ids,
+    )
+    created = [AnimeScene(
+        organization_id=actor.organization_id,
+        project_id=project.id,
+        created_by_user_id=actor.user_id,
+        **scene.model_dump(),
+    ) for scene in inputs]
+    session.add_all(created)
+    if created:
+        project.revision += 1
+        project.status = "draft"
+        if project.generation_project_id is None:
+            project.generation_project_id = comic.generation_project_id
+    await append_domain_audit(
+        session, actor=actor, module_name="anime_studio",
+        action="anime.storyboard.imported", entity_type="anime_project",
+        entity_id=project.id,
+        details={
+            "comic_id": str(comic.id),
+            "imported_count": len(created),
+            "skipped_count": skipped,
+        },
+    )
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Conflito na timeline do storyboard") from exc
+    return {
+        "source_comic_id": comic.id,
+        "imported_count": len(created),
+        "skipped_count": skipped,
+        "total_duration_ms": sum(scene.duration_ms for scene in created),
+        "scenes": created,
+    }
 
 
 async def _get_scene(session: AsyncSession, *, project: AnimeProject, scene_id: UUID) -> AnimeScene:

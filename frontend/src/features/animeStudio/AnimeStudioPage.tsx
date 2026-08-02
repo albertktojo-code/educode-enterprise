@@ -373,11 +373,23 @@ export function AnimeStudioPage() {
         visual_asset_file_id: uploaded.file_id,
         screenplay_text: String(data.get('screenplay') ?? ''),
         visual_prompt: String(data.get('prompt') ?? ''),
-        camera_settings: { movement: String(data.get('camera') ?? 'static') },
+        camera_settings: {
+          shot_type: String(data.get('shot') ?? 'medium'),
+          movement: String(data.get('camera') ?? 'static'),
+        },
         transition_settings: { type: String(data.get('transition') ?? 'cut') },
       })
       setSelectedSceneId(scene.id)
     }, 'Cena adicionada à timeline.')
+  }
+
+  async function importStoryboard(data: FormData) {
+    if (!project) return
+    const comicId = String(data.get('comic_id') ?? '').trim()
+    await execute(async () => {
+      const result = await animeStudioApi.importStoryboard(project.id, comicId)
+      setSelectedSceneId(result.scenes[0]?.id ?? selectedSceneId)
+    }, 'Storyboard sincronizado com a HQ.')
   }
 
   async function createAudio(data: FormData) {
@@ -548,7 +560,14 @@ export function AnimeStudioPage() {
                     {selectedScene ? (
                       <div className="anime-stage-overlay">
                         <span>Cena {selectedScene.position}</span>
-                        <p>{selectedScene.screenplay_text || 'Roteiro visual ainda não descrito.'}</p>
+                        <div>
+                          <p>{selectedScene.screenplay_text || 'Roteiro visual ainda não descrito.'}</p>
+                          <small>
+                            {String(selectedScene.camera_settings.shot_type ?? 'Plano médio')}
+                            {' · '}{String(selectedScene.camera_settings.movement ?? 'Câmera estática')}
+                            {' · '}{String(selectedScene.transition_settings.type ?? 'Corte')}
+                          </small>
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -566,6 +585,7 @@ export function AnimeStudioPage() {
                     <label>Duração (s)<input name="duration" type="number" min="1" max="600" defaultValue="5" /></label>
                     <label>Câmera<select name="camera"><option value="static">Estática</option><option value="pan">Panorâmica</option><option value="zoom_in">Zoom in</option><option value="zoom_out">Zoom out</option></select></label>
                   </div>
+                  <label>Enquadramento<select name="shot"><option value="wide">Plano geral</option><option value="medium">Plano médio</option><option value="close_up">Close-up</option><option value="detail">Plano detalhe</option></select></label>
                   <label>Transição<select name="transition"><option value="cut">Corte</option><option value="fade">Fade</option><option value="dissolve">Dissolver</option></select></label>
                   <label>Roteiro<textarea name="screenplay" rows={3} placeholder="A personagem observa o padrão..." /></label>
                   <label>Prompt visual<textarea name="prompt" rows={3} placeholder="Anime escolar, luz suave, plano médio..." /></label>
@@ -578,6 +598,15 @@ export function AnimeStudioPage() {
             {tab === 'storyboard' ? (
               <section className="anime-timeline-section">
                 <header><div><span className="anime-eyebrow">Timeline</span><h2>Sequência de cenas</h2></div><small>Use clique ou teclado para navegar.</small></header>
+                <form className="anime-storyboard-import" onSubmit={(event) => {
+                  event.preventDefault()
+                  void importStoryboard(new FormData(event.currentTarget))
+                }}>
+                  <label htmlFor="anime-comic-id">Converter HQ em storyboard</label>
+                  <input id="anime-comic-id" name="comic_id" type="text" required placeholder="ID da HQ gerada" />
+                  <button className="anime-button ghost" disabled={busy} type="submit">Importar cenas</button>
+                  <small>Cada quadro vira uma cena; novas importações ignoram quadros já sincronizados.</small>
+                </form>
                 {project.scenes.length ? (
                   <div className="anime-scene-strip" role="list">
                     {project.scenes.map((scene: AnimeScene) => (
@@ -590,6 +619,7 @@ export function AnimeStudioPage() {
                       >
                         <div className="anime-scene-thumb"><SecureMedia fileId={scene.visual_asset_file_id} title={scene.title} /></div>
                         <span><b>{String(scene.position).padStart(2, '0')}</b><strong>{scene.title}</strong><small>{formatDuration(scene.duration_ms)}</small></span>
+                        <em>{String(scene.camera_settings.shot_type ?? 'medium')} · {String(scene.camera_settings.movement ?? 'static')}</em>
                       </button>
                     ))}
                   </div>

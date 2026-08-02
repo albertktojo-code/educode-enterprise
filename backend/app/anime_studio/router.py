@@ -22,6 +22,8 @@ from app.anime_studio.schemas import (
     AnimeSceneCreate,
     AnimeSceneRead,
     AnimeSceneUpdate,
+    AnimeStoryboardImport,
+    AnimeStoryboardImportRead,
 )
 from app.anime_studio.services import (
     archive_project,
@@ -33,6 +35,7 @@ from app.anime_studio.services import (
     delete_caption,
     delete_scene,
     get_project,
+    import_comic_storyboard,
     list_projects,
     request_render,
     require_editor,
@@ -109,6 +112,22 @@ async def post_scene(
     actor: ActorContext = Depends(resolve_actor_context),
 ):
     return await create_scene(session, actor=actor, project_id=project_id, data=data)
+
+
+@router.post(
+    "/projects/{project_id}/storyboard/from-comic",
+    response_model=AnimeStoryboardImportRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def post_storyboard_from_comic(
+    project_id: UUID,
+    data: AnimeStoryboardImport,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+):
+    return await import_comic_storyboard(
+        session, actor=actor, project_id=project_id, data=data
+    )
 
 
 @router.patch("/projects/{project_id}/scenes/{scene_id}", response_model=AnimeSceneRead)

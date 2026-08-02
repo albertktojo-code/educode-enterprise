@@ -7,6 +7,7 @@ import type {
   AnimeProjectSummary,
   AnimeRender,
   AnimeScene,
+  AnimeStoryboardImportResult,
 } from './types'
 
 export interface CreateAnimeProjectInput {
@@ -31,6 +32,11 @@ export const animeStudioApi = {
     api.patch<AnimeProject>(`/anime-studio/projects/${projectId}`, input),
   createScene: (projectId: string, input: Record<string, unknown>) =>
     api.post<AnimeScene>(`/anime-studio/projects/${projectId}/scenes`, input),
+  importStoryboard: (projectId: string, comicId: string) =>
+    api.post<AnimeStoryboardImportResult>(
+      `/anime-studio/projects/${projectId}/storyboard/from-comic`,
+      { comic_id: comicId },
+    ),
   updateScene: (projectId: string, sceneId: string, input: Record<string, unknown>) =>
     api.patch<AnimeScene>(
       `/anime-studio/projects/${projectId}/scenes/${sceneId}`,

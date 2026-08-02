@@ -133,3 +133,11 @@ export interface AnimeMediaUpload {
   size_bytes: number
   download_path: string
 }
+
+export interface AnimeStoryboardImportResult {
+  source_comic_id: string
+  imported_count: number
+  skipped_count: number
+  total_duration_ms: number
+  scenes: AnimeScene[]
+}
