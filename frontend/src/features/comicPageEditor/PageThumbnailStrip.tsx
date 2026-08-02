@@ -19,6 +19,14 @@ export function PageThumbnailStrip({
     0,
     pages.findIndex((page) => page.id === selectedPageId),
   );
+  const selectedPage = pages[selectedIndex];
+  const storyPages = pages.filter((page) => page.pageType === "STORY");
+  const selectedStoryIndex = storyPages.findIndex(
+    (page) => page.id === selectedPageId,
+  );
+  const pagePositionLabel = selectedPage?.pageType === "STORY"
+    ? <>Página <strong>{selectedStoryIndex + 1}</strong> de{" "}<strong>{storyPages.length}</strong></>
+    : <><strong>{selectedPage?.pageType === "BACK_COVER" ? "Contracapa" : "Capa"}</strong> · {storyPages.length} página(s) da história</>;
   return (
     <nav className="hq-page-strip" aria-label="Páginas da HQ">
       <div className="hq-page-navigation">
@@ -30,10 +38,7 @@ export function PageThumbnailStrip({
         >
           ‹
         </button>
-        <span>
-          Página <strong>{selectedIndex + 1}</strong> de{" "}
-          <strong>{Math.max(1, pages.length)}</strong>
-        </span>
+        <span>{pagePositionLabel}</span>
         <button
           type="button"
           onClick={onNext}
