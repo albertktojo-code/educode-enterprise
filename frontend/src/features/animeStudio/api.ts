@@ -2,11 +2,13 @@ import { api, apiBlob } from '../../lib/api'
 import type {
   AnimeAudioTrack,
   AnimeCaptionCue,
+  AnimeClassroom,
   AnimeMediaUpload,
   AnimeMediaGeneration,
   AnimeMediaGenerationKind,
   AnimeProject,
   AnimeProjectSummary,
+  AnimePublication,
   AnimeRender,
   AnimeRenderJob,
   AnimeScene,
@@ -27,6 +29,7 @@ export interface CreateAnimeProjectInput {
 
 export const animeStudioApi = {
   listProjects: () => api.get<AnimeProjectSummary[]>('/anime-studio/projects'),
+  listClassrooms: () => api.get<AnimeClassroom[]>('/classrooms'),
   getProject: (projectId: string) =>
     api.get<AnimeProject>(`/anime-studio/projects/${projectId}`),
   createProject: (input: CreateAnimeProjectInput) =>
@@ -135,6 +138,15 @@ export const animeStudioApi = {
       `/anime-studio/projects/${projectId}/renders/${renderId}/restore`,
       {},
     ),
+  publishProject: (
+    projectId: string,
+    input: {
+      classroom_ids: string[]
+      include_captions: boolean
+      include_transcript: boolean
+      include_audio_description: boolean
+    },
+  ) => api.post<AnimePublication>(`/anime-studio/projects/${projectId}/publish`, input),
   getRenderJob: (jobId: string) =>
     api.get<AnimeRenderJob>(`/operations/jobs/${jobId}`),
   retryRenderJob: (jobId: string) =>

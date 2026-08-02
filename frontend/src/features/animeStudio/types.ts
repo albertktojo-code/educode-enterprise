@@ -106,6 +106,31 @@ export interface AnimeRenderJob {
   completed_at: string | null
 }
 
+export interface AnimeClassroom {
+  id: string
+  name: string
+  grade: string | null
+  is_active: boolean
+}
+
+export interface AnimePublication {
+  project_id: string
+  title: string
+  render_id: string
+  render_revision: number
+  asset_file_id: string
+  classroom_ids: string[]
+  published_at: string
+  published_by_user_id: string
+  width: number
+  height: number
+  format: string
+  caption_languages: string[]
+  includes_transcript: boolean
+  includes_audio_description: boolean
+  media_path: string
+}
+
 export interface AnimeProjectSummary {
   id: string
   title: string

@@ -28,6 +28,8 @@ from app.anime_studio.schemas import (
     AnimeMediaGenerationReview,
     AnimeProjectCreate,
     AnimeProjectUpdate,
+    AnimePublicationCreate,
+    AnimePublicationRead,
     AnimeRenderCreate,
     AnimeRenderReview,
     AnimeSceneCreate,
@@ -44,6 +46,7 @@ from app.models.assets import (
     InstitutionalAssetStatus,
 )
 from app.models.comic import ComicPage, ComicPanel, GeneratedComic
+from app.models.education import Classroom, ClassroomEnrollment
 from app.models.operations import BackgroundJob
 from app.models.pedagogy import GenerationProject
 from app.models.rag import RagContext
@@ -1577,3 +1580,164 @@ async def restore_render_version(
         organization_id=actor.organization_id,
         project_id=project_id,
     )
+
+
+def _publication_from_notes(project: AnimeProject) -> AnimePublicationRead:
+    publication = project.production_notes.get("publication")
+    if not isinstance(publication, dict):
+        raise HTTPException(status_code=404, detail="Produção audiovisual ainda não publicada")
+    try:
+        return AnimePublicationRead.model_validate(publication)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail="Manifesto de publicação inválido") from exc
+
+
+async def publish_project(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    data: AnimePublicationCreate,
+) -> AnimePublicationRead:
+    require_reviewer(actor)
+    project = await get_project(
+        session,
+        organization_id=actor.organization_id,
+        project_id=project_id,
+        for_update=True,
+    )
+    active_render_id = project.production_notes.get("active_render_id")
+    try:
+        active_render_uuid = UUID(str(active_render_id))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail="Aprove uma versão antes de publicar") from exc
+    render = await session.scalar(
+        select(AnimeRender).where(
+            AnimeRender.id == active_render_uuid,
+            AnimeRender.project_id == project.id,
+            AnimeRender.organization_id == actor.organization_id,
+        )
+    )
+    if render is None or render.status != "approved" or render.output_asset_file_id is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Somente a versão ativa, aprovada e concluída pode ser publicada",
+        )
+
+    classroom_ids = list(dict.fromkeys(data.classroom_ids))
+    classrooms = list(
+        (
+            await session.scalars(
+                select(Classroom).where(
+                    Classroom.id.in_(classroom_ids),
+                    Classroom.organization_id == actor.organization_id,
+                    Classroom.is_active.is_(True),
+                )
+            )
+        ).all()
+    )
+    if len(classrooms) != len(classroom_ids):
+        raise HTTPException(
+            status_code=422,
+            detail="Selecione somente turmas ativas da organização",
+        )
+
+    caption_languages = sorted(
+        {cue.language for cue in project.captions}
+        if data.include_captions
+        else set()
+    )
+    has_audio_description = data.include_audio_description and any(
+        track.track_kind == "audio_description" and not track.is_muted
+        for track in project.audio_tracks
+    )
+    published_at = utcnow()
+    publication = AnimePublicationRead(
+        project_id=project.id,
+        title=project.title,
+        render_id=render.id,
+        render_revision=render.revision,
+        asset_file_id=render.output_asset_file_id,
+        classroom_ids=classroom_ids,
+        published_at=published_at,
+        published_by_user_id=actor.user_id,
+        width=project.width,
+        height=project.height,
+        format=render.format,
+        caption_languages=caption_languages,
+        includes_transcript=data.include_transcript and bool(project.captions),
+        includes_audio_description=has_audio_description,
+        media_path=f"/anime-studio/publications/{project.id}/media",
+    )
+    manifest = publication.model_dump(mode="json")
+    project.production_notes = {**project.production_notes, "publication": manifest}
+    if render.output_asset_id is not None:
+        output_asset = await session.scalar(
+            select(InstitutionalAsset).where(
+                InstitutionalAsset.id == render.output_asset_id,
+                InstitutionalAsset.organization_id == actor.organization_id,
+            )
+        )
+        if output_asset is not None:
+            output_asset.status = InstitutionalAssetStatus.PUBLISHED
+            output_asset.published_at = published_at
+            output_asset.metadata_json = {
+                **output_asset.metadata_json,
+                "anime_publication": manifest,
+            }
+            session.add(
+                InstitutionalAssetAudit(
+                    organization_id=actor.organization_id,
+                    asset_id=output_asset.id,
+                    actor_user_id=actor.user_id,
+                    action="anime_render_published",
+                    details={
+                        "anime_render_id": str(render.id),
+                        "classroom_ids": [str(item) for item in classroom_ids],
+                    },
+                )
+            )
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.project.published",
+        entity_type="anime_project",
+        entity_id=project.id,
+        details={
+            "render_id": str(render.id),
+            "classroom_ids": [str(item) for item in classroom_ids],
+        },
+    )
+    await session.commit()
+    return publication
+
+
+async def get_project_publication(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+) -> AnimePublicationRead:
+    project = await get_project(
+        session,
+        organization_id=actor.organization_id,
+        project_id=project_id,
+    )
+    publication = _publication_from_notes(project)
+    if actor.roles.intersection(EDITOR_ROLES | REVIEWER_ROLES):
+        return publication
+    enrollment = await session.scalar(
+        select(ClassroomEnrollment.id)
+        .join(Classroom, Classroom.id == ClassroomEnrollment.classroom_id)
+        .where(
+            ClassroomEnrollment.user_id == actor.user_id,
+            ClassroomEnrollment.classroom_id.in_(publication.classroom_ids),
+            ClassroomEnrollment.role.ilike("student"),
+            Classroom.organization_id == actor.organization_id,
+            Classroom.is_active.is_(True),
+        )
+    )
+    if enrollment is None:
+        raise HTTPException(status_code=403, detail="Publicação não autorizada para suas turmas")
+    return publication

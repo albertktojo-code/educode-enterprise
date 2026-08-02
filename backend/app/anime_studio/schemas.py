@@ -195,6 +195,31 @@ class AnimeRenderReview(BaseModel):
     notes: str = Field(default="", max_length=10000)
 
 
+class AnimePublicationCreate(BaseModel):
+    classroom_ids: list[UUID] = Field(min_length=1, max_length=100)
+    include_captions: bool = True
+    include_transcript: bool = True
+    include_audio_description: bool = True
+
+
+class AnimePublicationRead(BaseModel):
+    project_id: UUID
+    title: str
+    render_id: UUID
+    render_revision: int
+    asset_file_id: UUID
+    classroom_ids: list[UUID]
+    published_at: datetime
+    published_by_user_id: UUID
+    width: int
+    height: int
+    format: str
+    caption_languages: list[str] = Field(default_factory=list)
+    includes_transcript: bool
+    includes_audio_description: bool
+    media_path: str
+
+
 class AnimeSceneRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
