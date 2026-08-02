@@ -31,8 +31,10 @@ import { LayoutLibraryPanel } from "./LayoutLibraryPanel";
 import { PagePreviewCanvas } from "./PagePreviewCanvas";
 import { PageThumbnailStrip } from "./PageThumbnailStrip";
 import {
+  applyLayoutToStoryPage,
   makeStoryPage,
   synchronizeStoryPages,
+  varyStoryPageLayouts,
 } from "./pageCollection";
 import { PanelInspector } from "./PanelInspector";
 import { ProductivityPanel } from "./ProductivityPanel";
@@ -720,30 +722,10 @@ export function ComicPageEditor() {
       return;
     }
 
-    const previous = selectedPage.panels;
-    const localPanels = layout.gridDefinition.panels.map(
-      (panel, index) => ({
-        ...panel,
-        id:
-          previous[index]?.id ??
-          `${selectedPage.id}-panel-${index + 1}`,
-        panelOrder: index + 1,
-        aspectRatio: panel.width > panel.height ? "4:3" : "3:4",
-        sceneSummary: previous[index]?.sceneSummary ?? "Nova cena",
-        visualPrompt: previous[index]?.visualPrompt ?? "",
-        generationStatus:
-          previous[index]?.generationStatus ?? "PENDING",
-        lockedElements: previous[index]?.lockedElements ?? [],
-      }),
-    );
+    const updatedPage = applyLayoutToStoryPage(selectedPage, layout);
+    const localPanels = updatedPage.panels;
     let nextPages = pages.map((page) =>
-      page.id === selectedPage.id
-        ? {
-            ...page,
-            layoutTemplateId: layout.id,
-            panels: localPanels,
-          }
-        : page,
+      page.id === selectedPage.id ? updatedPage : page,
     );
     setPages(nextPages);
     setSelectedPanelId(localPanels[0]?.id ?? "");
@@ -783,6 +765,63 @@ export function ComicPageEditor() {
       } finally {
         setBusy(false);
       }
+    }
+  }
+
+  async function varyLayoutsWithAi(): Promise<void> {
+    const availableLayouts = realProject
+      ? layouts.filter((layout) => UUID_PATTERN.test(layout.id))
+      : layouts;
+    if (!availableLayouts.length) {
+      setStatusMessage("Nenhum grid disponível para a distribuição automática.");
+      return;
+    }
+    setBusy(true);
+    const nextPages = varyStoryPageLayouts(
+      pages,
+      availableLayouts,
+    );
+    setPages(nextPages);
+    recordHistory(nextPages);
+    try {
+      if (realProject) {
+        const persisted = await Promise.all(
+          nextPages
+            .filter(
+              (page) =>
+                page.pageType === "STORY" &&
+                UUID_PATTERN.test(page.id) &&
+                page.layoutTemplateId &&
+                UUID_PATTERN.test(page.layoutTemplateId),
+            )
+            .map(async (page) => ({
+              pageId: page.id,
+              panels: await comicPageEditorApi.applyLayout(
+                page.id,
+                page.layoutTemplateId as string,
+              ),
+            })),
+        );
+        const panelsByPage = new Map(
+          persisted.map((item) => [item.pageId, item.panels]),
+        );
+        setPages((current) => current.map((page) =>
+          panelsByPage.has(page.id)
+            ? { ...page, panels: panelsByPage.get(page.id) ?? page.panels }
+            : page,
+        ));
+      }
+      setStatusMessage(
+        `IA distribuiu grids variados em ${storyPages.length} páginas narrativas.`,
+      );
+    } catch (error) {
+      setStatusMessage(
+        error instanceof Error
+          ? error.message
+          : "Falha ao distribuir os grids automaticamente.",
+      );
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -1228,6 +1267,8 @@ async function createBackCover(): Promise<void> {
           layouts={layouts}
           selectedId={selectedLayoutId}
           onSelect={(layout) => void applyLayout(layout)}
+          onAutoArrange={() => void varyLayoutsWithAi()}
+          autoArrangeDisabled={busy || !storyPages.length}
         />
 
         <section className="hq-canvas-column">

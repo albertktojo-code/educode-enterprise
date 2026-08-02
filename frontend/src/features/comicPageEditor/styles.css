@@ -188,6 +188,7 @@
   font-size: 13px;
   line-height: 1.45;
 }
+.hq-auto-grid-button { width: 100%; margin-bottom: 12px; }
 
 .hq-icon-button {
   border: 1px solid var(--hq-border);

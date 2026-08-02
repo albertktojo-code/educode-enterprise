@@ -68,3 +68,48 @@ export function synchronizeStoryPages(
     ...backCovers,
   ];
 }
+
+export function applyLayoutToStoryPage(
+  page: ComicPage,
+  layout: LayoutTemplate,
+): ComicPage {
+  const panels = layout.gridDefinition.panels.map((panel, index) => ({
+    ...panel,
+    id: page.panels[index]?.id ?? `${page.id}-panel-${index + 1}`,
+    panelOrder: index + 1,
+    aspectRatio: panel.width > panel.height ? "4:3" : "3:4",
+    sceneSummary: page.panels[index]?.sceneSummary ?? "Nova cena",
+    visualPrompt: page.panels[index]?.visualPrompt ?? "",
+    generationStatus:
+      page.panels[index]?.generationStatus ?? "PENDING",
+    lockedElements: page.panels[index]?.lockedElements ?? [],
+  }));
+  return {
+    ...page,
+    layoutTemplateId: layout.id,
+    panels,
+  };
+}
+
+export function varyStoryPageLayouts(
+  pages: ComicPage[],
+  layouts: LayoutTemplate[],
+  random: () => number = Math.random,
+): ComicPage[] {
+  if (!layouts.length) return pages;
+  let previousLayoutId: string | null = null;
+  return pages.map((page) => {
+    if (page.pageType !== "STORY") return page;
+    const candidates = layouts.filter(
+      (layout) => layout.id !== previousLayoutId,
+    );
+    const pool = candidates.length ? candidates : layouts;
+    const index = Math.min(
+      pool.length - 1,
+      Math.floor(random() * pool.length),
+    );
+    const layout = pool[Math.max(0, index)];
+    previousLayoutId = layout.id;
+    return applyLayoutToStoryPage(page, layout);
+  });
+}

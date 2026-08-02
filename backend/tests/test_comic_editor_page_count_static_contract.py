@@ -10,6 +10,9 @@ def test_story_page_count_excludes_cover_and_back_cover_in_editor() -> None:
     thumbnails = (EDITOR_ROOT / "PageThumbnailStrip.tsx").read_text(
         encoding="utf-8"
     )
+    layout_panel = (EDITOR_ROOT / "LayoutLibraryPanel.tsx").read_text(
+        encoding="utf-8"
+    )
 
     assert "{ length: normalizedTotal }" in collection
     assert 'page.pageType === "STORY"' in collection
@@ -21,3 +24,9 @@ def test_story_page_count_excludes_cover_and_back_cover_in_editor() -> None:
     assert "synchronizeStoryPages(pages, next.totalPages, layouts)" in editor
     assert 'pages.filter((page) => page.pageType === "STORY")' in thumbnails
     assert "storyPages.length" in thumbnails
+    assert "varyStoryPageLayouts" in collection
+    assert "previousLayoutId" in collection
+    assert "applyLayoutToStoryPage(selectedPage, layout)" in editor
+    assert "varyLayoutsWithAi" in editor
+    assert "IA variar grids por página" in layout_panel
+    assert "Ver mais grids" not in layout_panel

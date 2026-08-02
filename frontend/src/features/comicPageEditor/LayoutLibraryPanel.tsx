@@ -4,12 +4,16 @@ interface Props {
   layouts: LayoutTemplate[];
   selectedId?: string;
   onSelect: (layout: LayoutTemplate) => void;
+  onAutoArrange: () => void;
+  autoArrangeDisabled?: boolean;
 }
 
 export function LayoutLibraryPanel({
   layouts,
   selectedId,
   onSelect,
+  onAutoArrange,
+  autoArrangeDisabled = false,
 }: Props) {
   return (
     <aside
@@ -34,6 +38,15 @@ export function LayoutLibraryPanel({
         Cada página pode usar um grid diferente. A narrativa será
         redistribuída conforme a quantidade real de quadros.
       </p>
+
+      <button
+        type="button"
+        className="hq-primary hq-auto-grid-button"
+        onClick={onAutoArrange}
+        disabled={autoArrangeDisabled}
+      >
+        ✦ IA variar grids por página
+      </button>
 
       <div className="hq-layout-list">
         {layouts.map((layout) => (
@@ -77,9 +90,6 @@ export function LayoutLibraryPanel({
         ))}
       </div>
 
-      <button type="button" className="hq-more-grids">
-        Ver mais grids <span>⌄</span>
-      </button>
     </aside>
   );
 }
