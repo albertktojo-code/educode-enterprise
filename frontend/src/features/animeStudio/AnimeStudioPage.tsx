@@ -7,6 +7,8 @@ import {
 
 import { animeStudioApi } from './api'
 import type {
+  AnimeMediaGeneration,
+  AnimeMediaGenerationKind,
   AnimeProject,
   AnimeProjectSummary,
   AnimeRender,
@@ -14,7 +16,7 @@ import type {
 } from './types'
 import './styles.css'
 
-type StudioTab = 'storyboard' | 'audio' | 'captions' | 'render'
+type StudioTab = 'storyboard' | 'generation' | 'audio' | 'captions' | 'render'
 
 const statusLabels: Record<string, string> = {
   draft: 'Rascunho',
@@ -34,6 +36,15 @@ const trackLabels: Record<string, string> = {
   music: 'Música',
   sfx: 'Efeito',
   audio_description: 'Audiodescrição',
+}
+
+const generationLabels: Record<AnimeMediaGenerationKind, string> = {
+  image: 'Imagem',
+  animation: 'Animação',
+  voice: 'Voz',
+  lip_sync: 'Sincronização labial',
+  music: 'Trilha sonora',
+  sfx: 'Efeito sonoro',
 }
 
 function formatDuration(milliseconds: number | null): string {
@@ -241,6 +252,7 @@ export function AnimeStudioPage() {
   const [project, setProject] = useState<AnimeProject | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null)
+  const [mediaGenerations, setMediaGenerations] = useState<AnimeMediaGeneration[]>([])
   const [tab, setTab] = useState<StudioTab>('storyboard')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -264,6 +276,10 @@ export function AnimeStudioPage() {
     )
   }, [])
 
+  const loadMediaGenerations = useCallback(async (projectId: string) => {
+    setMediaGenerations(await animeStudioApi.listMediaGenerations(projectId))
+  }, [])
+
   useEffect(() => {
     setLoading(true)
     void loadProjects()
@@ -277,10 +293,20 @@ export function AnimeStudioPage() {
       return
     }
     setLoading(true)
-    void loadProject(selectedId)
+    void Promise.all([loadProject(selectedId), loadMediaGenerations(selectedId)])
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Falha ao abrir produção'))
       .finally(() => setLoading(false))
-  }, [loadProject, selectedId])
+  }, [loadMediaGenerations, loadProject, selectedId])
+
+  useEffect(() => {
+    if (!project || !mediaGenerations.some((job) => ['pending', 'queued', 'processing'].includes(job.status))) return undefined
+    const timer = window.setInterval(() => {
+      void loadMediaGenerations(project.id).catch((reason: unknown) =>
+        setError(reason instanceof Error ? reason.message : 'Falha ao atualizar gerações'),
+      )
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [loadMediaGenerations, mediaGenerations, project])
 
   useEffect(() => {
     if (!project || !['rendering'].includes(project.status)) return undefined
@@ -315,6 +341,7 @@ export function AnimeStudioPage() {
       setNotice(successMessage)
       await loadProjects()
       if (selectedId) await loadProject(selectedId)
+      if (selectedId) await loadMediaGenerations(selectedId)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível concluir a ação')
     } finally {
@@ -390,6 +417,33 @@ export function AnimeStudioPage() {
       const result = await animeStudioApi.importStoryboard(project.id, comicId)
       setSelectedSceneId(result.scenes[0]?.id ?? selectedSceneId)
     }, 'Storyboard sincronizado com a HQ.')
+  }
+
+  async function requestMediaGeneration(data: FormData) {
+    if (!project) return
+    const sceneId = String(data.get('scene_id') ?? '') || null
+    const scene = project.scenes.find((item) => item.id === sceneId)
+    await execute(async () => {
+      await animeStudioApi.requestMediaGeneration(project.id, {
+        scene_id: sceneId,
+        kind: String(data.get('kind') ?? 'image') as AnimeMediaGenerationKind,
+        prompt: String(data.get('prompt') ?? ''),
+        duration_ms: Number(data.get('duration') ?? (scene?.duration_ms ?? 5000) / 1000) * 1000,
+        voice_name: String(data.get('voice_name') ?? ''),
+      })
+      setTab('generation')
+    }, 'Geração enviada para a fila com revisão humana obrigatória.')
+  }
+
+  async function reviewMediaGeneration(
+    job: AnimeMediaGeneration,
+    decision: 'approved' | 'rejected',
+  ) {
+    if (!project) return
+    await execute(
+      () => animeStudioApi.reviewMediaGeneration(project.id, job.id, decision).then(() => undefined),
+      decision === 'approved' ? 'Mídia aprovada.' : 'Mídia rejeitada para nova geração.',
+    )
   }
 
   async function createAudio(data: FormData) {
@@ -525,6 +579,7 @@ export function AnimeStudioPage() {
             <nav className="anime-tabs" aria-label="Ferramentas do Estúdio Anime">
               {([
                 ['storyboard', 'Storyboard', '▤'],
+                ['generation', 'Gerar mídia', '✦'],
                 ['audio', 'Áudio', '♫'],
                 ['captions', 'Legendas', 'CC'],
                 ['render', 'Render e revisão', '▶'],
@@ -624,6 +679,51 @@ export function AnimeStudioPage() {
                     ))}
                   </div>
                 ) : <div className="anime-empty-state"><span aria-hidden="true">▤</span><h3>A timeline está vazia</h3><p>Adicione a primeira cena usando o painel de direção visual.</p></div>}
+              </section>
+            ) : null}
+
+            {tab === 'generation' ? (
+              <section className="anime-tool-grid anime-generation-grid">
+                <div className="anime-generation-board">
+                  <header>
+                    <div><span className="anime-eyebrow">Fila de produção</span><h2>Mídia gerada por IA</h2></div>
+                    <span>{mediaGenerations.length} solicitações</span>
+                  </header>
+                  {mediaGenerations.length ? mediaGenerations.map((job) => (
+                    <article className="anime-generation-job" key={job.id}>
+                      <div className="anime-generation-heading">
+                        <span aria-hidden="true">✦</span>
+                        <div>
+                          <strong>{generationLabels[job.kind]}</strong>
+                          <small>{statusLabels[job.status] ?? job.status} · custo estimado US$ {job.estimated_cost.toFixed(4)}</small>
+                        </div>
+                        <b>{job.progress_percent}%</b>
+                      </div>
+                      <div className="anime-progress" aria-label={`${job.progress_percent}% concluído`}><i style={{ width: `${job.progress_percent}%` }} /></div>
+                      <p>{job.error_message || job.current_step}</p>
+                      {job.status === 'completed' && job.review_decision === 'pending' ? (
+                        <footer>
+                          <button type="button" className="anime-button ghost" disabled={busy} onClick={() => void reviewMediaGeneration(job, 'rejected')}>Solicitar nova versão</button>
+                          <button type="button" className="anime-button primary" disabled={busy} onClick={() => void reviewMediaGeneration(job, 'approved')}>Aprovar mídia</button>
+                        </footer>
+                      ) : <small>Revisão: {job.review_decision === 'pending' ? 'aguardando resultado' : job.review_decision}</small>}
+                    </article>
+                  )) : <div className="anime-empty-state"><span aria-hidden="true">✦</span><h3>Nenhuma mídia solicitada</h3><p>Escolha o tipo, a cena e envie uma direção criativa.</p></div>}
+                </div>
+
+                <form className="anime-inspector" onSubmit={(event) => {
+                  event.preventDefault()
+                  void requestMediaGeneration(new FormData(event.currentTarget))
+                }}>
+                  <header><span className="anime-eyebrow">Nova geração</span><h2>Direção de mídia</h2></header>
+                  <label>Tipo<select name="kind"><option value="image">Imagem</option><option value="animation">Animação</option><option value="voice">Voz</option><option value="lip_sync">Sincronização labial</option><option value="music">Trilha sonora</option><option value="sfx">Efeito sonoro</option></select></label>
+                  <label>Cena<select name="scene_id"><option value="">Produção inteira (trilha/efeito)</option>{project.scenes.map((scene) => <option value={scene.id} key={scene.id}>Cena {scene.position} · {scene.title}</option>)}</select></label>
+                  <label>Duração (s)<input name="duration" type="number" min="0.5" max="600" step="0.5" defaultValue="5" /></label>
+                  <label>Voz/personagem<input name="voice_name" placeholder="Luna · voz jovem" /></label>
+                  <label>Direção criativa<textarea name="prompt" rows={6} placeholder="Anime escolar, movimento suave, voz acolhedora..." /></label>
+                  <small>O custo será reservado na quota institucional antes do processamento.</small>
+                  <button type="submit" className="anime-button primary" disabled={busy}>Enviar para a fila</button>
+                </form>
               </section>
             ) : null}
 

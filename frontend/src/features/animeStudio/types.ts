@@ -141,3 +141,27 @@ export interface AnimeStoryboardImportResult {
   total_duration_ms: number
   scenes: AnimeScene[]
 }
+
+export type AnimeMediaGenerationKind =
+  | 'image'
+  | 'animation'
+  | 'voice'
+  | 'lip_sync'
+  | 'music'
+  | 'sfx'
+
+export interface AnimeMediaGeneration {
+  id: string
+  project_id: string
+  scene_id: string | null
+  kind: AnimeMediaGenerationKind
+  status: string
+  progress_percent: number
+  current_step: string
+  estimated_cost: number
+  review_required: boolean
+  review_decision: string
+  error_message: string
+  created_at: string
+  completed_at: string | null
+}

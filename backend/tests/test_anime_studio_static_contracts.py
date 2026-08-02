@@ -92,3 +92,13 @@ def test_storyboard_reuses_hq_preview_and_canonical_anime_scenes() -> None:
     assert "load_comic(" in services
     assert 'action="anime.storyboard.imported"' in services
     assert '"/projects/{project_id}/storyboard/from-comic"' in router
+
+
+def test_media_generation_reuses_jobs_quotas_and_human_review() -> None:
+    services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
+    router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")
+    assert 'job_type="media_generation"' in services
+    assert "estimated_cost=estimated_cost" in services
+    assert 'action="anime.media_generation.queued"' in services
+    assert "require_reviewer(actor)" in services
+    assert '"/projects/{project_id}/media-generations"' in router

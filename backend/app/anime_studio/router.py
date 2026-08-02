@@ -12,6 +12,9 @@ from app.anime_studio.schemas import (
     AnimeCaptionCreate,
     AnimeCaptionRead,
     AnimeCaptionUpdate,
+    AnimeMediaGenerationCreate,
+    AnimeMediaGenerationRead,
+    AnimeMediaGenerationReview,
     AnimeProjectCreate,
     AnimeProjectRead,
     AnimeProjectSummary,
@@ -36,9 +39,12 @@ from app.anime_studio.services import (
     delete_scene,
     get_project,
     import_comic_storyboard,
+    list_media_generations,
     list_projects,
+    request_media_generation,
     request_render,
     require_editor,
+    review_media_generation,
     review_render,
     update_audio_track,
     update_caption,
@@ -125,8 +131,48 @@ async def post_storyboard_from_comic(
     session: AsyncSession = Depends(get_project_session),
     actor: ActorContext = Depends(resolve_actor_context),
 ):
-    return await import_comic_storyboard(
-        session, actor=actor, project_id=project_id, data=data
+    return await import_comic_storyboard(session, actor=actor, project_id=project_id, data=data)
+
+
+@router.get(
+    "/projects/{project_id}/media-generations",
+    response_model=list[AnimeMediaGenerationRead],
+)
+async def get_media_generations(
+    project_id: UUID,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+):
+    return await list_media_generations(session, actor=actor, project_id=project_id)
+
+
+@router.post(
+    "/projects/{project_id}/media-generations",
+    response_model=AnimeMediaGenerationRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def post_media_generation(
+    project_id: UUID,
+    data: AnimeMediaGenerationCreate,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+):
+    return await request_media_generation(session, actor=actor, project_id=project_id, data=data)
+
+
+@router.post(
+    "/projects/{project_id}/media-generations/{job_id}/review",
+    response_model=AnimeMediaGenerationRead,
+)
+async def post_media_generation_review(
+    project_id: UUID,
+    job_id: UUID,
+    data: AnimeMediaGenerationReview,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+):
+    return await review_media_generation(
+        session, actor=actor, project_id=project_id, job_id=job_id, data=data
     )
 
 
