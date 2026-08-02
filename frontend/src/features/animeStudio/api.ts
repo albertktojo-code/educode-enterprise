@@ -102,6 +102,14 @@ export const animeStudioApi = {
       `/anime-studio/projects/${projectId}/captions`,
       input,
     ),
+  updateCaption: (
+    projectId: string,
+    cueId: string,
+    input: Record<string, unknown>,
+  ) => api.patch<AnimeCaptionCue>(
+    `/anime-studio/projects/${projectId}/captions/${cueId}`,
+    input,
+  ),
   deleteCaption: (projectId: string, cueId: string) =>
     api.delete<void>(`/anime-studio/projects/${projectId}/captions/${cueId}`),
   requestRender: (projectId: string, captionLanguage: string) =>
