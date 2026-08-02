@@ -190,6 +190,24 @@ def test_student_anime_library_is_class_scoped_and_accessible() -> None:
     assert '"/publications/{project_id}/captions.vtt"' in router
 
 
+def test_anime_renditions_reuse_asset_variants_and_protected_streaming() -> None:
+    rendering = (BACKEND / "app/anime_studio/rendering.py").read_text(encoding="utf-8")
+    services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
+    media_router = (BACKEND / "app/anime_studio/media_router.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "def rendition_profiles" in rendering
+    assert "async def _transcode_rendition" in rendering
+    assert "InstitutionalAssetVariant(" in rendering
+    assert 'variant_type="video_resolution"' in rendering
+    assert '"rendition_file_ids"' in rendering
+    assert "AnimePublicationRendition(" in services
+    assert 'view_type.like("anime_render%")' in services
+    assert '"/publications/{project_id}/media/{file_id}"' in media_router
+    assert "file_id not in allowed_file_ids" in media_router
+
+
 def test_timeline_editor_reuses_canonical_scene_crud_and_audit() -> None:
     services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
     router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")

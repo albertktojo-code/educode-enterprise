@@ -210,3 +210,40 @@ async def stream_publication(
         filename=row.file_name,
         content_disposition_type="inline",
     )
+
+
+@router.get("/publications/{project_id}/media/{file_id}")
+async def stream_publication_rendition(
+    project_id: UUID,
+    file_id: UUID,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+) -> FileResponse:
+    publication = await get_project_publication(
+        session,
+        actor=actor,
+        project_id=project_id,
+    )
+    allowed_file_ids = {
+        publication.asset_file_id,
+        *(rendition.asset_file_id for rendition in publication.renditions),
+    }
+    if file_id not in allowed_file_ids:
+        raise HTTPException(status_code=404, detail="Resolução publicada não encontrada")
+    row = await session.scalar(
+        select(InstitutionalAssetFile)
+        .join(InstitutionalAsset)
+        .where(
+            InstitutionalAssetFile.id == file_id,
+            InstitutionalAsset.organization_id == actor.organization_id,
+            InstitutionalAsset.status == InstitutionalAssetStatus.PUBLISHED,
+        )
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Resolução publicada não encontrada")
+    return FileResponse(
+        storage.resolve(row.storage_key),
+        media_type=row.mime_type,
+        filename=row.file_name,
+        content_disposition_type="inline",
+    )

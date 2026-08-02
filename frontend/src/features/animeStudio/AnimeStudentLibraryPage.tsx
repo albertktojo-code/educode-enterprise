@@ -18,6 +18,7 @@ function formatDuration(milliseconds: number): string {
 export function AnimeStudentLibraryPage() {
   const [items, setItems] = useState<AnimePublicationLibraryItem[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedRenditionId, setSelectedRenditionId] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState('')
   const [captionUrl, setCaptionUrl] = useState('')
   const [transcript, setTranscript] = useState<AnimePublicationTranscriptCue[]>([])
@@ -31,6 +32,7 @@ export function AnimeStudentLibraryPage() {
       .then((rows) => {
         setItems(rows)
         setSelectedId(rows[0]?.publication.project_id ?? null)
+        setSelectedRenditionId(rows[0]?.publication.renditions[0]?.asset_file_id ?? null)
       })
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false))
@@ -44,7 +46,7 @@ export function AnimeStudentLibraryPage() {
     setMediaLoading(true)
     setError('')
     void Promise.all([
-      animeStudioApi.publicationMedia(selectedId),
+      animeStudioApi.publicationMedia(selectedId, selectedRenditionId),
       animeStudioApi.publicationCaptions(selectedId),
       animeStudioApi.publicationTranscript(selectedId),
     ]).then(([video, captions, cues]) => {
@@ -64,9 +66,12 @@ export function AnimeStudentLibraryPage() {
       if (nextVideoUrl) URL.revokeObjectURL(nextVideoUrl)
       if (nextCaptionUrl) URL.revokeObjectURL(nextCaptionUrl)
     }
-  }, [selectedId])
+  }, [selectedId, selectedRenditionId])
 
   const selected = items.find((item) => item.publication.project_id === selectedId) ?? null
+  const selectedRendition = selected?.publication.renditions.find(
+    (rendition) => rendition.asset_file_id === selectedRenditionId,
+  ) ?? selected?.publication.renditions[0] ?? null
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('pt-BR')
     if (!query) return items
@@ -89,13 +94,13 @@ export function AnimeStudentLibraryPage() {
       {!loading && items.length ? <div className="anime-library-layout">
         <aside aria-label="Vídeos disponíveis">
           <strong>{filtered.length} {filtered.length === 1 ? 'vídeo' : 'vídeos'}</strong>
-          <div>{filtered.map((item) => <button type="button" className={selectedId === item.publication.project_id ? 'is-active' : ''} key={item.publication.project_id} onClick={() => setSelectedId(item.publication.project_id)}><span aria-hidden="true">▶</span><div><b>{item.publication.title}</b><small>{formatDuration(item.duration_ms)} · {item.publication.width}×{item.publication.height}</small></div></button>)}</div>
+          <div>{filtered.map((item) => <button type="button" className={selectedId === item.publication.project_id ? 'is-active' : ''} key={item.publication.project_id} onClick={() => { setSelectedId(item.publication.project_id); setSelectedRenditionId(item.publication.renditions[0]?.asset_file_id ?? null) }}><span aria-hidden="true">▶</span><div><b>{item.publication.title}</b><small>{formatDuration(item.duration_ms)} · {item.publication.width}×{item.publication.height}</small></div></button>)}</div>
         </aside>
 
         <main>
           {selected ? <>
-            <div className="anime-student-player">{mediaLoading || !videoUrl ? <div role="status">Preparando vídeo…</div> : <video key={selectedId} controls playsInline preload="metadata"><source src={videoUrl} type={`video/${selected.publication.format}`} />{captionUrl ? <track default kind="captions" src={captionUrl} srcLang={selected.publication.caption_languages[0] ?? 'pt-BR'} label="Português" /> : null}</video>}</div>
-            <section className="anime-student-copy"><div><span>PUBLICADO PELO PROFESSOR</span><h2>{selected.publication.title}</h2><p>{selected.synopsis || 'Produção audiovisual educacional da sua turma.'}</p></div><ul><li>{selected.publication.caption_languages.length ? 'CC Legendas' : 'Sem legendas'}</li><li>{selected.publication.includes_transcript ? 'Transcrição' : 'Sem transcrição'}</li><li>{selected.publication.includes_audio_description ? 'Audiodescrição' : 'Áudio original'}</li></ul></section>
+            <div className="anime-student-player">{mediaLoading || !videoUrl ? <div role="status">Preparando vídeo…</div> : <video key={`${selectedId}-${selectedRenditionId ?? 'source'}`} controls playsInline preload="metadata"><source src={videoUrl} type={`video/${selected.publication.format}`} />{captionUrl ? <track default kind="captions" src={captionUrl} srcLang={selected.publication.caption_languages[0] ?? 'pt-BR'} label="Português" /> : null}</video>}</div>
+            <section className="anime-student-copy"><div><span>PUBLICADO PELO PROFESSOR</span><h2>{selected.publication.title}</h2><p>{selected.synopsis || 'Produção audiovisual educacional da sua turma.'}</p></div><div className="anime-quality-tools">{selected.publication.renditions.length > 1 ? <label>Qualidade<select value={selectedRendition?.asset_file_id ?? ''} onChange={(event) => setSelectedRenditionId(event.target.value)}>{selected.publication.renditions.map((rendition) => <option value={rendition.asset_file_id} key={rendition.asset_file_id}>{rendition.label} · {rendition.width}×{rendition.height}</option>)}</select></label> : null}<ul><li>{selected.publication.caption_languages.length ? 'CC Legendas' : 'Sem legendas'}</li><li>{selected.publication.includes_transcript ? 'Transcrição' : 'Sem transcrição'}</li><li>{selected.publication.includes_audio_description ? 'Audiodescrição' : 'Áudio original'}</li></ul></div></section>
             {selected.publication.includes_transcript ? <section className="anime-transcript"><header><span>ACESSIBILIDADE</span><h2>Transcrição</h2></header>{transcript.length ? <ol>{transcript.map((cue, index) => <li key={`${cue.start_ms}-${index}`}><time>{formatDuration(cue.start_ms)}</time><p>{cue.speaker ? <strong>{cue.speaker}: </strong> : null}{cue.text}</p></li>)}</ol> : <p>A transcrição ainda não possui trechos.</p>}</section> : null}
           </> : null}
         </main>
