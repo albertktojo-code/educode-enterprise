@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.anime_studio.generation import _run_ffmpeg, generated_media_contract
 from app.anime_studio.models import AnimeProject
-from app.anime_studio.rendering import _scene_filter, _srt_timestamp
+from app.anime_studio.rendering import _scene_filter, _srt_timestamp, rendition_profiles
 from app.anime_studio.schemas import (
     AnimeAudioTrackCreate,
     AnimeAudioTrackUpdate,
@@ -278,6 +278,15 @@ def test_ffmpeg_helpers_create_accessible_timestamps_and_safe_frame() -> None:
     video_filter = _scene_filter(1920, 1080, 24)
     assert "force_original_aspect_ratio=decrease" in video_filter
     assert "format=yuv420p" in video_filter
+
+
+def test_rendition_profiles_preserve_aspect_ratio_without_upscaling() -> None:
+    profiles = rendition_profiles(1920, 1080)
+    assert profiles == [
+        {"label": "720p", "width": 1280, "height": 720},
+        {"label": "480p", "width": 854, "height": 480},
+    ]
+    assert rendition_profiles(640, 480) == []
 
 
 def test_models_register_only_the_new_audiovisual_tables() -> None:

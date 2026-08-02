@@ -129,6 +129,16 @@ export interface AnimePublication {
   includes_transcript: boolean
   includes_audio_description: boolean
   media_path: string
+  renditions: AnimePublicationRendition[]
+}
+
+export interface AnimePublicationRendition {
+  label: string
+  asset_file_id: string
+  width: number
+  height: number
+  size_bytes: number
+  media_path: string
 }
 
 export interface AnimePublicationLibraryItem {

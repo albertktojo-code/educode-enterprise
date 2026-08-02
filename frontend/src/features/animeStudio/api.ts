@@ -38,8 +38,10 @@ export const animeStudioApi = {
     api.get<AnimePublicationTranscriptCue[]>(
       `/anime-studio/publications/${projectId}/transcript`,
     ),
-  publicationMedia: (projectId: string) =>
-    apiBlob(`/anime-studio/publications/${projectId}/media`),
+  publicationMedia: (projectId: string, fileId?: string | null) =>
+    apiBlob(
+      `/anime-studio/publications/${projectId}/media${fileId ? `/${fileId}` : ''}`,
+    ),
   publicationCaptions: (projectId: string) =>
     apiBlob(`/anime-studio/publications/${projectId}/captions.vtt`),
   getProject: (projectId: string) =>

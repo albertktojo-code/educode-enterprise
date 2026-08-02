@@ -202,6 +202,15 @@ class AnimePublicationCreate(BaseModel):
     include_audio_description: bool = True
 
 
+class AnimePublicationRendition(BaseModel):
+    label: str
+    asset_file_id: UUID
+    width: int
+    height: int
+    size_bytes: int
+    media_path: str
+
+
 class AnimePublicationRead(BaseModel):
     project_id: UUID
     title: str
@@ -218,6 +227,7 @@ class AnimePublicationRead(BaseModel):
     includes_transcript: bool
     includes_audio_description: bool
     media_path: str
+    renditions: list[AnimePublicationRendition] = Field(default_factory=list)
 
 
 class AnimePublicationLibraryItem(BaseModel):
