@@ -347,15 +347,27 @@
 .anime-generation-job footer { display: flex; justify-content: flex-end; gap: 8px; }
 .anime-progress { height: 6px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.08); }
 .anime-progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7c3aed, #22d3ee); transition: width .3s ease; }
-.anime-track { display: grid; grid-template-columns: 42px minmax(0,1fr) minmax(180px, 260px) auto; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--anime-line); border-radius: 14px; background: rgba(255,255,255,.035); }
+.anime-track { display: grid; gap: 12px; padding: 12px; border: 1px solid var(--anime-line); border-radius: 14px; background: rgba(255,255,255,.035); }
+.anime-track.is-muted { opacity: .72; }
+.anime-track-main { display: grid; grid-template-columns: 42px minmax(0,1fr) minmax(180px,260px) auto; align-items: center; gap: 12px; }
 .anime-track-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 12px; color: #ddd6fe; background: rgba(139,92,246,.2); font-size: 1.15rem; }
 .anime-track.kind-music .anime-track-icon { color: #f9a8d4; background: rgba(236,72,153,.18); }
 .anime-track.kind-sfx .anime-track-icon { color: #67e8f9; background: rgba(34,211,238,.14); }
-.anime-track > div { min-width: 0; }
+.anime-track > div,
+.anime-track-main > div { min-width: 0; }
 .anime-track strong,
 .anime-track small { display: block; }
 .anime-track p { margin: 5px 0 0; overflow: hidden; color: #d1cde0; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
 .anime-audio-player { width: 100%; height: 34px; filter: invert(.88) hue-rotate(190deg); }
+.anime-waveform { display: flex; height: 52px; align-items: center; gap: 3px; padding: 6px 10px; overflow: hidden; border-radius: 10px; background: rgba(4,3,12,.52); }
+.anime-waveform i { flex: 1 1 0; min-width: 2px; border-radius: 999px; background: linear-gradient(180deg, #c084fc, #22d3ee); opacity: .8; }
+.anime-track-mixer { display: grid; grid-template-columns: repeat(4,minmax(110px,1fr)); gap: 10px; padding-top: 2px; }
+.anime-track-mixer label { display: grid; gap: 5px; color: var(--anime-muted); font-size: .7rem; }
+.anime-track-mixer input,
+.anime-track-mixer select { min-width: 0; }
+.anime-track-mixer .anime-track-replacement { grid-column: span 2; }
+.anime-track-mixer .anime-check-row { align-self: end; }
+.anime-track-mixer .anime-button { align-self: end; }
 
 .anime-caption-board ol,
 .anime-render-history ol { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
@@ -408,8 +420,9 @@
   .anime-workspace,
   .anime-tool-grid,
   .anime-render-grid { grid-template-columns: minmax(0,1fr) 300px; }
-  .anime-track { grid-template-columns: 42px minmax(0,1fr) auto; }
-  .anime-track .anime-audio-player { grid-column: 2 / -1; }
+  .anime-track-main { grid-template-columns: 42px minmax(0,1fr) auto; }
+  .anime-track-main .anime-audio-player { grid-column: 2 / -1; }
+  .anime-track-mixer { grid-template-columns: repeat(2,minmax(120px,1fr)); }
 }
 
 @media (max-width: 900px) {
@@ -447,7 +460,9 @@
   .anime-inspector,
   .anime-render-history,
   .anime-timeline-section { border-radius: 15px; padding: 14px; }
-  .anime-track { grid-template-columns: 38px minmax(0,1fr) auto; }
+  .anime-track-main { grid-template-columns: 38px minmax(0,1fr) auto; }
+  .anime-track-mixer { grid-template-columns: 1fr; }
+  .anime-track-mixer .anime-track-replacement { grid-column: auto; }
   .anime-caption-board li { grid-template-columns: 1fr auto; }
   .anime-caption-board time { grid-column: 1 / -1; }
   .anime-review-actions { grid-template-columns: 1fr; }

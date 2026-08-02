@@ -116,6 +116,18 @@ def test_anime_media_worker_creates_canonical_reviewable_artifacts() -> None:
     assert "AnimeAudioTrack(" in services
 
 
+def test_audio_mixer_reuses_canonical_tracks_assets_and_tenant_scope() -> None:
+    schemas = (BACKEND / "app/anime_studio/schemas.py").read_text(encoding="utf-8")
+    services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
+    router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")
+    assert "class AnimeAudioTrackUpdate" in schemas
+    for field in ("trim_start_ms", "volume", "fade_in_ms", "fade_out_ms", "is_muted"):
+        assert field in schemas
+    assert "_validate_asset_file" in services
+    assert "model.organization_id == organization_id" in services
+    assert '"/projects/{project_id}/audio-tracks/{track_id}"' in router
+
+
 def test_timeline_editor_reuses_canonical_scene_crud_and_audit() -> None:
     services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
     router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")

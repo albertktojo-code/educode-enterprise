@@ -7,6 +7,7 @@ import {
 
 import { animeStudioApi } from './api'
 import type {
+  AnimeAudioTrack,
   AnimeMediaGeneration,
   AnimeMediaGenerationKind,
   AnimeProject,
@@ -529,6 +530,37 @@ export function AnimeStudioPage() {
     }, 'Faixa sincronizada com a produção.')
   }
 
+  async function updateAudio(track: AnimeAudioTrack, data: FormData) {
+    if (!project) return
+    await execute(async () => {
+      let assetFileId = track.asset_file_id
+      const replacement = data.get('replacement')
+      if (replacement instanceof File && replacement.size > 0) {
+        const uploaded = await animeStudioApi.uploadMedia(
+          project.id,
+          replacement,
+          'audio',
+          `${track.label} · substituição`,
+        )
+        assetFileId = uploaded.file_id
+      }
+      await animeStudioApi.updateAudioTrack(project.id, track.id, {
+        label: String(data.get('label') ?? track.label),
+        scene_id: data.get('scene_id') || null,
+        start_ms: Number(data.get('start') ?? 0) * 1000,
+        duration_ms: Number(data.get('duration') ?? 0) > 0
+          ? Number(data.get('duration')) * 1000
+          : null,
+        trim_start_ms: Number(data.get('trim') ?? 0) * 1000,
+        volume: Number(data.get('volume') ?? 1),
+        fade_in_ms: Number(data.get('fade_in') ?? 0) * 1000,
+        fade_out_ms: Number(data.get('fade_out') ?? 0) * 1000,
+        is_muted: data.get('muted') === 'on',
+        asset_file_id: assetFileId,
+      })
+    }, 'Mixagem da faixa atualizada.')
+  }
+
   async function createCaption(data: FormData) {
     if (!project) return
     await execute(async () => {
@@ -827,11 +859,29 @@ export function AnimeStudioPage() {
                 <div className="anime-track-board">
                   <header><div><span className="anime-eyebrow">Mixer</span><h2>Voz, música e efeitos</h2></div><span>{project.audio_tracks.length} faixas</span></header>
                   {project.audio_tracks.length ? project.audio_tracks.map((track) => (
-                    <article className={`anime-track kind-${track.track_kind}`} key={track.id}>
-                      <span className="anime-track-icon" aria-hidden="true">{track.track_kind === 'music' ? '♫' : track.track_kind === 'sfx' ? '✦' : '◉'}</span>
-                      <div><strong>{track.label}</strong><small>{trackLabels[track.track_kind]} · inicia em {formatDuration(track.start_ms)}</small>{track.transcript ? <p>{track.transcript}</p> : null}</div>
-                      <SecureMedia fileId={track.asset_file_id} title={track.label} controls />
-                      <button type="button" className="anime-icon-button danger" aria-label={`Excluir ${track.label}`} onClick={() => void execute(() => animeStudioApi.deleteAudioTrack(project.id, track.id), 'Faixa removida.')}>×</button>
+                    <article className={`anime-track kind-${track.track_kind}${track.is_muted ? ' is-muted' : ''}`} key={track.id}>
+                      <div className="anime-track-main">
+                        <span className="anime-track-icon" aria-hidden="true">{track.track_kind === 'music' ? '♫' : track.track_kind === 'sfx' ? '✦' : '◉'}</span>
+                        <div><strong>{track.label}</strong><small>{trackLabels[track.track_kind]} · inicia em {formatDuration(track.start_ms)}{track.is_muted ? ' · silenciada' : ''}</small>{track.transcript ? <p>{track.transcript}</p> : null}</div>
+                        <SecureMedia fileId={track.asset_file_id} title={track.label} controls />
+                        <button type="button" className="anime-icon-button danger" aria-label={`Excluir ${track.label}`} onClick={() => void execute(() => animeStudioApi.deleteAudioTrack(project.id, track.id), 'Faixa removida.')}>×</button>
+                      </div>
+                      <div className="anime-waveform" role="img" aria-label={`Forma de onda de ${track.label}`}>
+                        {Array.from({ length: 28 }, (_, index) => <i key={index} style={{ height: `${28 + ((index * 17 + track.label.length * 7) % 68)}%` }} />)}
+                      </div>
+                      <form className="anime-track-mixer" onSubmit={(event) => { event.preventDefault(); void updateAudio(track, new FormData(event.currentTarget)) }}>
+                        <label>Nome<input name="label" defaultValue={track.label} required /></label>
+                        <label>Cena<select name="scene_id" defaultValue={track.scene_id ?? ''}><option value="">Produção inteira</option>{project.scenes.map((scene) => <option value={scene.id} key={scene.id}>Cena {scene.position} · {scene.title}</option>)}</select></label>
+                        <label>Início (s)<input name="start" type="number" min="0" step="0.1" defaultValue={track.start_ms / 1000} /></label>
+                        <label>Duração/corte (s)<input name="duration" type="number" min="0" step="0.1" defaultValue={track.duration_ms ? track.duration_ms / 1000 : ''} placeholder="Original" /></label>
+                        <label>Recorte inicial (s)<input name="trim" type="number" min="0" step="0.1" defaultValue={track.trim_start_ms / 1000} /></label>
+                        <label>Volume<input name="volume" type="number" min="0" max="2" step="0.05" defaultValue={track.volume} /></label>
+                        <label>Fade in (s)<input name="fade_in" type="number" min="0" step="0.1" defaultValue={track.fade_in_ms / 1000} /></label>
+                        <label>Fade out (s)<input name="fade_out" type="number" min="0" step="0.1" defaultValue={track.fade_out_ms / 1000} /></label>
+                        <label className="anime-track-replacement">Substituir áudio<input name="replacement" type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/aac,audio/flac,audio/webm" /></label>
+                        <label className="anime-check-row"><input name="muted" type="checkbox" defaultChecked={track.is_muted} /> Silenciar faixa</label>
+                        <button type="submit" className="anime-button ghost" disabled={busy}>Salvar mixagem</button>
+                      </form>
                     </article>
                   )) : <div className="anime-empty-state"><span aria-hidden="true">♫</span><h3>O anime ainda está silencioso</h3><p>Adicione diálogos, narração, música ou efeitos sonoros.</p></div>}
                 </div>
