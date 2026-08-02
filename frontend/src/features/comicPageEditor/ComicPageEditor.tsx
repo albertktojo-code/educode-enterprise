@@ -25,12 +25,17 @@ import {
 } from "./editorState";
 import {
   fallbackLayouts,
-  layoutForPage,
   mergeLayouts,
 } from "./layoutCatalog";
 import { LayoutLibraryPanel } from "./LayoutLibraryPanel";
 import { PagePreviewCanvas } from "./PagePreviewCanvas";
 import { PageThumbnailStrip } from "./PageThumbnailStrip";
+import {
+  applyLayoutToStoryPage,
+  makeStoryPage,
+  synchronizeStoryPages,
+  varyStoryPageLayouts,
+} from "./pageCollection";
 import { PanelInspector } from "./PanelInspector";
 import { ProductivityPanel } from "./ProductivityPanel";
 import type {
@@ -83,40 +88,6 @@ function defaultStoryPlan(projectId: string): StoryPlan {
     generationStatus: "DRAFT",
     aiGenerationRequestId: null,
     revisionNumber: 0,
-  };
-}
-
-function makeStoryPage(
-  pageNumber: number,
-  totalPages: number,
-  layouts: LayoutTemplate[],
-): ComicPage {
-  const layout = layoutForPage(layouts, pageNumber, totalPages);
-  return {
-    id: `demo-page-${pageNumber}`,
-    pageNumber,
-    pageType: "STORY",
-    status: "DRAFT",
-    pageWidth: 1200,
-    pageHeight: 1600,
-    layoutTemplateId: layout.id,
-    backgroundSettings: {},
-    accessibilitySettings: {},
-    contentLayers: [],
-    preservationSettings: {},
-    continuityMetadata: {},
-    coverGeneration: {},
-    revisionNumber: 1,
-    panels: layout.gridDefinition.panels.map((panel, index) => ({
-      ...panel,
-      id: `demo-page-${pageNumber}-panel-${index + 1}`,
-      panelOrder: index + 1,
-      aspectRatio: panel.width > panel.height ? "4:3" : "3:4",
-      sceneSummary: `Página ${pageNumber}, cena ${index + 1}`,
-      visualPrompt: "",
-      generationStatus: "PENDING",
-      lockedElements: [],
-    })),
   };
 }
 
@@ -234,13 +205,18 @@ export function ComicPageEditor() {
     () => makeStoryPage(1, initialStory.totalPages, fallbackLayouts),
     [initialStory.totalPages],
   );
+  const initialPages = useMemo(
+    () => synchronizeStoryPages(
+      [coverAsPage(initialCover), initialStoryPage],
+      initialStory.totalPages,
+      fallbackLayouts,
+    ),
+    [initialCover, initialStory, initialStoryPage],
+  );
 
   const [layouts, setLayouts] =
     useState<LayoutTemplate[]>(fallbackLayouts);
-  const [pages, setPages] = useState<ComicPage[]>([
-    coverAsPage(initialCover),
-    initialStoryPage,
-  ]);
+  const [pages, setPages] = useState<ComicPage[]>(initialPages);
   const [storyPlan, setStoryPlan] =
     useState<StoryPlan>(initialStory);
   const [cover, setCover] =
@@ -466,12 +442,16 @@ export function ComicPageEditor() {
         ...(loadedCover ? [coverAsPage(loadedCover)] : []),
         ...loadedPages.filter((page) => page.pageType !== "COVER"),
       ];
-      const finalPages = normalizedPages.length
-        ? normalizedPages
-        : [
-            coverAsPage(defaultCover()),
-            makeStoryPage(1, loadedStory.totalPages, loadedLayouts),
-          ];
+      const finalPages = synchronizeStoryPages(
+        normalizedPages.length
+          ? normalizedPages
+          : [
+              coverAsPage(defaultCover()),
+              makeStoryPage(1, loadedStory.totalPages, loadedLayouts),
+            ],
+        loadedStory.totalPages,
+        loadedLayouts,
+      );
       setPages(finalPages);
 
       const firstStory =
@@ -576,8 +556,37 @@ export function ComicPageEditor() {
 
   function updateStory(patch: Partial<StoryPlan>): void {
     const next = { ...storyPlan, ...patch };
+    const pageCountChanged =
+      patch.totalPages !== undefined &&
+      patch.totalPages !== storyPlan.totalPages;
+    const nextPages = pageCountChanged
+      ? synchronizeStoryPages(pages, next.totalPages, layouts)
+      : pages;
+    let nextPageId = selectedPageId;
+    let nextPanelId = selectedPanelId;
+    if (!nextPages.some((page) => page.id === selectedPageId)) {
+      const fallbackPage = [...nextPages]
+        .reverse()
+        .find((page) => page.pageType === "STORY") ?? nextPages[0];
+      nextPageId = fallbackPage?.id ?? "";
+      nextPanelId = fallbackPage?.panels[0]?.id ?? "";
+      setSelectedPageId(nextPageId);
+      setSelectedPanelId(nextPanelId);
+    }
     setStoryPlan(next);
-    recordHistory(pages, next);
+    if (pageCountChanged) {
+      setPages(nextPages);
+      setStatusMessage(
+        `${next.totalPages} páginas narrativas disponíveis para configurar o grid.`,
+      );
+    }
+    recordHistory(
+      nextPages,
+      next,
+      cover,
+      nextPageId,
+      nextPanelId,
+    );
   }
 
   function updatePanel(patch: Partial<ComicPanel>): void {
@@ -713,30 +722,10 @@ export function ComicPageEditor() {
       return;
     }
 
-    const previous = selectedPage.panels;
-    const localPanels = layout.gridDefinition.panels.map(
-      (panel, index) => ({
-        ...panel,
-        id:
-          previous[index]?.id ??
-          `${selectedPage.id}-panel-${index + 1}`,
-        panelOrder: index + 1,
-        aspectRatio: panel.width > panel.height ? "4:3" : "3:4",
-        sceneSummary: previous[index]?.sceneSummary ?? "Nova cena",
-        visualPrompt: previous[index]?.visualPrompt ?? "",
-        generationStatus:
-          previous[index]?.generationStatus ?? "PENDING",
-        lockedElements: previous[index]?.lockedElements ?? [],
-      }),
-    );
+    const updatedPage = applyLayoutToStoryPage(selectedPage, layout);
+    const localPanels = updatedPage.panels;
     let nextPages = pages.map((page) =>
-      page.id === selectedPage.id
-        ? {
-            ...page,
-            layoutTemplateId: layout.id,
-            panels: localPanels,
-          }
-        : page,
+      page.id === selectedPage.id ? updatedPage : page,
     );
     setPages(nextPages);
     setSelectedPanelId(localPanels[0]?.id ?? "");
@@ -779,6 +768,63 @@ export function ComicPageEditor() {
     }
   }
 
+  async function varyLayoutsWithAi(): Promise<void> {
+    const availableLayouts = realProject
+      ? layouts.filter((layout) => UUID_PATTERN.test(layout.id))
+      : layouts;
+    if (!availableLayouts.length) {
+      setStatusMessage("Nenhum grid disponível para a distribuição automática.");
+      return;
+    }
+    setBusy(true);
+    const nextPages = varyStoryPageLayouts(
+      pages,
+      availableLayouts,
+    );
+    setPages(nextPages);
+    recordHistory(nextPages);
+    try {
+      if (realProject) {
+        const persisted = await Promise.all(
+          nextPages
+            .filter(
+              (page) =>
+                page.pageType === "STORY" &&
+                UUID_PATTERN.test(page.id) &&
+                page.layoutTemplateId &&
+                UUID_PATTERN.test(page.layoutTemplateId),
+            )
+            .map(async (page) => ({
+              pageId: page.id,
+              panels: await comicPageEditorApi.applyLayout(
+                page.id,
+                page.layoutTemplateId as string,
+              ),
+            })),
+        );
+        const panelsByPage = new Map(
+          persisted.map((item) => [item.pageId, item.panels]),
+        );
+        setPages((current) => current.map((page) =>
+          panelsByPage.has(page.id)
+            ? { ...page, panels: panelsByPage.get(page.id) ?? page.panels }
+            : page,
+        ));
+      }
+      setStatusMessage(
+        `IA distribuiu grids variados em ${storyPages.length} páginas narrativas.`,
+      );
+    } catch (error) {
+      setStatusMessage(
+        error instanceof Error
+          ? error.message
+          : "Falha ao distribuir os grids automaticamente.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveStory(): Promise<void> {
     setBusy(true);
     try {
@@ -805,27 +851,11 @@ export function ComicPageEditor() {
     setBusy(true);
     try {
       if (!realProject) {
-        const existingStory = pages.filter(
-          (page) => page.pageType === "STORY",
+        const nextPages = synchronizeStoryPages(
+          pages,
+          storyPlan.totalPages,
+          layouts,
         );
-        const nextStory = Array.from(
-          { length: storyPlan.totalPages },
-          (_, index) =>
-            existingStory[index] ??
-            makeStoryPage(
-              index + 1,
-              storyPlan.totalPages,
-              layouts,
-            ),
-        );
-        const nextPages = [
-          ...(cover ? [coverAsPage(cover)] : []),
-          ...nextStory,
-          ...pages.filter(
-            (page) =>
-              !["COVER", "STORY"].includes(page.pageType),
-          ),
-        ];
         setPages(nextPages);
         recordHistory(nextPages);
         setStatusMessage(
@@ -1237,6 +1267,8 @@ async function createBackCover(): Promise<void> {
           layouts={layouts}
           selectedId={selectedLayoutId}
           onSelect={(layout) => void applyLayout(layout)}
+          onAutoArrange={() => void varyLayoutsWithAi()}
+          autoArrangeDisabled={busy || !storyPages.length}
         />
 
         <section className="hq-canvas-column">
