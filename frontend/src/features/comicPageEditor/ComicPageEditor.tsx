@@ -291,6 +291,20 @@ export function ComicPageEditor() {
     0,
   );
 
+  useEffect(() => {
+    setPages((current) => {
+      const currentStoryTotal = current.filter(
+        (page) => page.pageType === "STORY",
+      ).length;
+      if (currentStoryTotal === storyPlan.totalPages) return current;
+      return synchronizeStoryPages(
+        current,
+        storyPlan.totalPages,
+        layouts,
+      );
+    });
+  }, [layouts, storyPlan.totalPages]);
+
   const recordHistory = useCallback(
     (
       nextPages: ComicPage[] = pages,
@@ -878,7 +892,11 @@ export function ComicPageEditor() {
         ...(cover ? [coverAsPage(cover)] : []),
         ...loaded.filter((page) => page.pageType !== "COVER"),
       ];
-      setPages(nextPages);
+      setPages(synchronizeStoryPages(
+        nextPages,
+        result.storyPlan.totalPages,
+        layouts,
+      ));
       setStoryPlan(result.storyPlan);
       setStatusMessage(
         `Narrativa distribuída em ${result.pages} páginas e ${result.panels} quadros.`,

@@ -547,6 +547,7 @@ async def get_story_plan(
                             == actor.organization_id,
                             models.HQEditorPage.comic_project_id
                             == project_id,
+                            models.HQEditorPage.page_type == "STORY",
                         )
                     )
                 ).scalars().all()
