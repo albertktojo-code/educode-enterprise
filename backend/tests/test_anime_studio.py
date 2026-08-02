@@ -10,8 +10,9 @@ from app.anime_studio.schemas import (
     AnimeAudioTrackCreate,
     AnimeCaptionCreate,
     AnimeProjectCreate,
+    AnimeStoryboardImport,
 )
-from app.anime_studio.services import render_snapshot
+from app.anime_studio.services import render_snapshot, storyboard_scene_inputs
 from app.anime_studio.storage import AnimeMediaStorage, InvalidAnimeMediaError
 
 
@@ -49,6 +50,46 @@ def test_audio_contract_supports_accessibility_and_mixing() -> None:
     )
     assert track.track_kind == "audio_description"
     assert track.volume == 0.85
+
+
+def test_storyboard_import_maps_hq_panel_into_timed_anime_scene() -> None:
+    comic_id, page_id, panel_id = uuid4(), uuid4(), uuid4()
+    request = AnimeStoryboardImport(comic_id=comic_id)
+    inputs, skipped = storyboard_scene_inputs(
+        {
+            "comic_id": str(request.comic_id),
+            "scenes": [{
+                "sequence_number": 2,
+                "page_id": str(page_id),
+                "panel_id": str(panel_id),
+                "scene_summary": "Ada encontra uma pista",
+                "estimated_duration_seconds": 7,
+                "shot_type": "close_up",
+                "camera_direction": "zoom_in",
+                "transition": "dissolve",
+                "dialogue": [{"speaker": "Ada", "text": "Observe o padrao."}],
+                "pedagogical_goal": "Reconhecer padroes",
+                "ct_pillar_codes": ["pattern_recognition"],
+            }],
+        },
+        start_position=4,
+    )
+    assert skipped == 0
+    assert inputs[0].position == 4
+    assert inputs[0].duration_ms == 7000
+    assert inputs[0].camera_settings == {"shot_type": "close_up", "movement": "zoom_in"}
+    assert "Ada: Observe o padrao." in inputs[0].screenplay_text
+    assert inputs[0].source_comic_panel_id == panel_id
+
+
+def test_storyboard_import_skips_panels_already_on_timeline() -> None:
+    panel_id = uuid4()
+    inputs, skipped = storyboard_scene_inputs(
+        {"scenes": [{"page_id": str(uuid4()), "panel_id": str(panel_id)}]},
+        excluded_panel_ids={panel_id},
+    )
+    assert inputs == []
+    assert skipped == 1
 
 
 def test_render_snapshot_is_versioned_and_references_canonical_assets() -> None:

@@ -279,6 +279,8 @@
 .anime-stage-overlay { position: absolute; inset: auto 0 0; display: flex; align-items: center; gap: 12px; padding: 22px 18px 15px; background: linear-gradient(transparent, rgba(3,2,10,.94)); }
 .anime-stage-overlay span { flex: 0 0 auto; padding: 5px 8px; border-radius: 7px; color: white; background: #7c3aed; font-size: .72rem; font-weight: 900; text-transform: uppercase; }
 .anime-stage-overlay p { margin: 0; color: #e5e7eb; font-size: .86rem; }
+.anime-stage-overlay > div { min-width: 0; }
+.anime-stage-overlay small { color: #c4b5fd; font-size: .7rem; text-transform: capitalize; }
 
 .anime-inspector { position: sticky; top: 16px; display: grid; gap: 13px; padding: 18px; }
 .anime-inspector label,
@@ -303,6 +305,10 @@
 
 .anime-timeline-section { margin-top: 18px; padding: 18px; }
 .anime-timeline-section > header { margin-bottom: 14px; }
+.anime-storyboard-import { display: grid; grid-template-columns: auto minmax(220px, 1fr) auto; align-items: center; gap: 10px; margin-bottom: 14px; padding: 12px; border: 1px solid rgba(139,92,246,.25); border-radius: 12px; background: rgba(139,92,246,.07); }
+.anime-storyboard-import label { color: #ddd6fe; font-size: .78rem; font-weight: 800; }
+.anime-storyboard-import input { min-width: 0; padding: 10px 11px; border: 1px solid rgba(255,255,255,.13); border-radius: 10px; color: white; background: rgba(5,4,14,.72); }
+.anime-storyboard-import small { grid-column: 2 / -1; }
 .anime-scene-strip { display: flex; gap: 12px; padding: 2px 2px 10px; overflow-x: auto; scroll-snap-type: x proximity; }
 .anime-scene-strip > button { display: grid; min-width: 210px; max-width: 240px; padding: 0; overflow: hidden; border: 1px solid var(--anime-line); border-radius: 14px; color: var(--anime-ink); background: rgba(255,255,255,.035); text-align: left; cursor: pointer; scroll-snap-align: start; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
 .anime-scene-strip > button:hover,
@@ -313,6 +319,7 @@
 .anime-scene-strip button > span:last-child { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 8px; padding: 10px; }
 .anime-scene-strip b { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 8px; color: #e9d5ff; background: rgba(139,92,246,.2); font-size: .7rem; }
 .anime-scene-strip strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }
+.anime-scene-strip em { padding: 0 10px 10px; color: #a5b4fc; font-size: .68rem; font-style: normal; text-transform: capitalize; }
 
 .anime-track-board,
 .anime-caption-board { display: grid; gap: 11px; }
@@ -391,6 +398,8 @@
   .anime-tool-grid,
   .anime-render-grid { grid-template-columns: 1fr; }
   .anime-inspector { position: static; }
+  .anime-storyboard-import { grid-template-columns: 1fr; }
+  .anime-storyboard-import small { grid-column: auto; }
   .anime-metrics { grid-template-columns: 1fr 1fr; }
   .anime-review-actions { grid-template-columns: 1fr 1fr; }
   .anime-review-actions > div { grid-column: 1 / -1; }

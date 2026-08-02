@@ -80,6 +80,10 @@ class AnimeSceneUpdate(BaseModel):
     status: SceneStatus | None = None
 
 
+class AnimeStoryboardImport(BaseModel):
+    comic_id: UUID
+
+
 class AnimeAudioTrackCreate(BaseModel):
     scene_id: UUID | None = None
     track_kind: TrackKind
@@ -185,6 +189,14 @@ class AnimeSceneRead(BaseModel):
     approved_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class AnimeStoryboardImportRead(BaseModel):
+    source_comic_id: UUID
+    imported_count: int
+    skipped_count: int
+    total_duration_ms: int
+    scenes: list[AnimeSceneRead] = Field(default_factory=list)
 
 
 class AnimeAudioTrackRead(BaseModel):

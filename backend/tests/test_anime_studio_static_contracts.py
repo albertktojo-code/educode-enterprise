@@ -83,3 +83,12 @@ def test_render_uses_immutable_snapshot_and_tenant_scoped_links() -> None:
     assert "model.organization_id == organization_id" in services
     assert "GeneratedComic.organization_id == organization_id" in services
     assert router.count("require_editor(actor)") >= 2
+
+
+def test_storyboard_reuses_hq_preview_and_canonical_anime_scenes() -> None:
+    services = (BACKEND / "app/anime_studio/services.py").read_text(encoding="utf-8")
+    router = (BACKEND / "app/anime_studio/router.py").read_text(encoding="utf-8")
+    assert "build_storyboard(comic)" in services
+    assert "load_comic(" in services
+    assert 'action="anime.storyboard.imported"' in services
+    assert '"/projects/{project_id}/storyboard/from-comic"' in router
