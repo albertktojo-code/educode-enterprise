@@ -48,6 +48,7 @@ from app.anime_studio.services import (
     request_media_generation,
     request_render,
     require_editor,
+    restore_render_version,
     review_media_generation,
     review_render,
     split_scene,
@@ -339,4 +340,22 @@ async def post_render_review(
         project_id=project_id,
         render_id=render_id,
         data=data,
+    )
+
+
+@router.post(
+    "/projects/{project_id}/renders/{render_id}/restore",
+    response_model=AnimeProjectRead,
+)
+async def post_render_restore(
+    project_id: UUID,
+    render_id: UUID,
+    session: AsyncSession = Depends(get_project_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+):
+    return await restore_render_version(
+        session,
+        actor=actor,
+        project_id=project_id,
+        render_id=render_id,
     )

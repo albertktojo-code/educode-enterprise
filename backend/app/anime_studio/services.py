@@ -1498,6 +1498,11 @@ async def review_render(
             )
     if data.decision == "approved":
         project.approved_by_user_id = actor.user_id
+        project.production_notes = {
+            **project.production_notes,
+            "active_render_id": str(render.id),
+            "active_render_revision": render.revision,
+        }
         project.approved_at = utcnow()
     else:
         project.approved_by_user_id = None
@@ -1514,3 +1519,61 @@ async def review_render(
     await session.commit()
     await session.refresh(render)
     return render
+
+
+async def restore_render_version(
+    session: AsyncSession,
+    *,
+    actor: ActorContext,
+    project_id: UUID,
+    render_id: UUID,
+) -> AnimeProject:
+    require_reviewer(actor)
+    project = await get_project(
+        session,
+        organization_id=actor.organization_id,
+        project_id=project_id,
+        for_update=True,
+    )
+    render = await session.scalar(
+        select(AnimeRender).where(
+            AnimeRender.id == render_id,
+            AnimeRender.project_id == project.id,
+            AnimeRender.organization_id == actor.organization_id,
+        )
+    )
+    if render is None:
+        raise HTTPException(status_code=404, detail="Renderização não encontrada")
+    if render.status != "approved" or render.output_asset_file_id is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Somente versões aprovadas e concluídas podem ser restauradas",
+        )
+    project.production_notes = {
+        **project.production_notes,
+        "active_render_id": str(render.id),
+        "active_render_revision": render.revision,
+        "restored_at": utcnow().isoformat(),
+    }
+    project.status = "ready"
+    project.revision += 1
+    project.approved_by_user_id = actor.user_id
+    project.approved_at = utcnow()
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="anime_studio",
+        action="anime.render.version_restored",
+        entity_type="anime_render",
+        entity_id=render.id,
+        details={
+            "project_id": str(project.id),
+            "render_revision": render.revision,
+        },
+    )
+    await session.commit()
+    return await get_project(
+        session,
+        organization_id=actor.organization_id,
+        project_id=project_id,
+    )

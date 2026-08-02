@@ -93,6 +93,19 @@ export interface AnimeRender {
   updated_at: string
 }
 
+export interface AnimeRenderJob {
+  id: string
+  status: string
+  progress_percent: number
+  current_step: string
+  retry_count: number
+  max_retries: number
+  error_message: string
+  queued_at: string | null
+  started_at: string | null
+  completed_at: string | null
+}
+
 export interface AnimeProjectSummary {
   id: string
   title: string
