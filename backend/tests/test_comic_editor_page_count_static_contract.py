@@ -22,6 +22,8 @@ def test_story_page_count_excludes_cover_and_back_cover_in_editor() -> None:
     assert "...storyPages" in collection
     assert "...backCovers" in collection
     assert "synchronizeStoryPages(pages, next.totalPages, layouts)" in editor
+    assert "currentStoryTotal === storyPlan.totalPages" in editor
+    assert "result.storyPlan.totalPages" in editor
     assert 'pages.filter((page) => page.pageType === "STORY")' in thumbnails
     assert "storyPages.length" in thumbnails
     assert "varyStoryPageLayouts" in collection
@@ -30,3 +32,13 @@ def test_story_page_count_excludes_cover_and_back_cover_in_editor() -> None:
     assert "varyLayoutsWithAi" in editor
     assert "IA variar grids por página" in layout_panel
     assert "Ver mais grids" not in layout_panel
+
+
+def test_story_plan_fallback_counts_only_story_pages() -> None:
+    router = (
+        PROJECT_ROOT / "backend/app/comic_page_editor/router.py"
+    ).read_text(encoding="utf-8")
+    fallback_start = router.index("async def get_story_plan")
+    fallback_end = router.index("async def save_story_plan")
+    fallback = router[fallback_start:fallback_end]
+    assert 'models.HQEditorPage.page_type == "STORY"' in fallback
