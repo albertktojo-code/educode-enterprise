@@ -21,6 +21,29 @@ O EduCode Enterprise 2.0 é uma plataforma educacional multi-organização para:
 O objetivo é manter uma arquitetura única e rastreável. Não criar módulos
 paralelos para funcionalidades que já possuem domínio canônico.
 
+### 1.1 Arquitetura oficial de produtos
+
+O EduCode é apresentado como nove produtos integrados:
+
+- **EduCode Learn:** cursos, aulas, trilhas e conteúdos;
+- **EduCode Studio:** HQs, animes, vídeos, áudios e materiais;
+- **EduCode Practice:** exercícios, quizzes, programação e simulações;
+- **EduCode Assess:** avaliações, banco de questões e instrumentos;
+- **EduCode Tutor:** tutoria de IA e aprendizagem adaptativa;
+- **EduCode Analytics:** desempenho, intervenções e eficácia;
+- **EduCode Connect:** comunicação, fóruns e colaboração;
+- **EduCode Credentials:** portfólio, competências e certificações;
+- **EduCode Admin:** instituições, usuários, segurança e governança.
+
+Essa divisão é uma arquitetura de produto e experiência, não uma autorização
+para duplicar domínios técnicos. Modelos, tabelas, routers, eventos e serviços
+canônicos continuam compartilhados. Em especial, Practice reutiliza itens do
+Assessment Hub e execução do Assessment Delivery; Tutor reutiliza aprendizagem
+adaptativa; Analytics consome evidências sem se tornar sua fonte primária.
+
+O mapa completo de responsabilidades, limites e transição está em
+`docs/PRODUCT_ARCHITECTURE.md`.
+
 ---
 
 ## 2. Stack principal
