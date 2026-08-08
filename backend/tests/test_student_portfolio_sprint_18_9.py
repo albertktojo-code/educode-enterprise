@@ -67,3 +67,8 @@ def test_frontend_exposes_curate_reflect_and_remove_actions() -> None:
     assert "Salvar reflexão" in page
     assert "Remover da curadoria" in page
     assert 'aria-live="polite"' in page
+
+
+def test_smoke_test_tracks_portfolio_migration_head() -> None:
+    smoke = (WORKSPACE_ROOT / "scripts/smoke_test.py").read_text(encoding="utf-8")
+    assert 'version.get("migration_revision") == "0057_student_portfolio"' in smoke
