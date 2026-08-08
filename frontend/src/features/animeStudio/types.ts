@@ -130,6 +130,16 @@ export interface AnimePublication {
   includes_audio_description: boolean
   media_path: string
   renditions: AnimePublicationRendition[]
+  interactive_checkpoints: AnimeInteractiveCheckpoint[]
+}
+
+export interface AnimeInteractiveCheckpoint {
+  id: string
+  timestamp_ms: number
+  label: string
+  assignment_id: string
+  pause_playback: boolean
+  required: boolean
 }
 
 export interface AnimePublicationRendition {

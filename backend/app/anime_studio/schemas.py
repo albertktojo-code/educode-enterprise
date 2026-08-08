@@ -211,6 +211,15 @@ class AnimePublicationRendition(BaseModel):
     media_path: str
 
 
+class AnimeInteractiveCheckpoint(BaseModel):
+    id: UUID
+    timestamp_ms: int = Field(ge=0, le=86_400_000)
+    label: str = Field(min_length=1, max_length=180)
+    assignment_id: UUID
+    pause_playback: bool = True
+    required: bool = False
+
+
 class AnimePublicationRead(BaseModel):
     project_id: UUID
     title: str
@@ -228,6 +237,7 @@ class AnimePublicationRead(BaseModel):
     includes_audio_description: bool
     media_path: str
     renditions: list[AnimePublicationRendition] = Field(default_factory=list)
+    interactive_checkpoints: list[AnimeInteractiveCheckpoint] = Field(default_factory=list)
 
 
 class AnimePublicationLibraryItem(BaseModel):
