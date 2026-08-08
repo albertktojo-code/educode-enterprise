@@ -54,6 +54,7 @@ import { MockAiPage } from './pages/MockAiPage'
 import { OrganizationPage } from './pages/OrganizationPage'
 import { PedagogicalStudioPage } from './pages/PedagogicalStudioPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { ProductDirectoryPage } from './pages/ProductDirectoryPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { StudentAssignmentPage } from './pages/StudentAssignmentPage'
@@ -79,6 +80,7 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route index element={<DashboardPage />} />
+              <Route path="produtos" element={<ProductDirectoryPage />} />
               <Route path="projetos" element={<ProjectsPage />} />
               <Route
                 path="projetos/:projectId"

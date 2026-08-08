@@ -40,6 +40,7 @@ const teacherGroups: NavGroup[] = [
   {
     label: "Área do professor",
     items: [
+      { to: "/produtos", label: "Produtos EduCode", icon: "◈" },
       { to: "/estudio-professor", label: "Criar material", icon: "✦" },
       { to: "/publicacoes", label: "Publicar e acompanhar", icon: "◉" },
       { to: "/avaliacoes", label: "Avaliações integradas", icon: "✓" },
@@ -187,6 +188,11 @@ const studentGroups: NavGroup[] = [
   {
     label: "Área do estudante",
     items: [
+      {
+        to: "/produtos",
+        label: "Produtos EduCode",
+        icon: "◈",
+      },
       {
         to: "/aluno",
         label: "Início",

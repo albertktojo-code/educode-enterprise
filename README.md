@@ -9,6 +9,15 @@
 
 Versão consolidada das Sprints 01–13.3. Esta entrega acrescenta **Aprendizagem Adaptativa e Trilhas Personalizadas**, mantendo a infraestrutura distribuída, a IA transversal, o Núcleo de Avaliação Integrada, Learning Analytics e o Laboratório Estatístico.
 
+## Arquitetura oficial de produtos
+
+O ecossistema é organizado em nove produtos integrados: **EduCode Learn,
+Studio, Practice, Assess, Tutor, Analytics, Connect, Credentials e Admin**.
+Essa organização orienta experiência, navegação e comunicação sem substituir
+os domínios técnicos canônicos. Consulte
+[`docs/PRODUCT_ARCHITECTURE.md`](docs/PRODUCT_ARCHITECTURE.md) e acesse o
+diretório visual em `/produtos`.
+
 ## Regra pedagógica
 
 > O EduCode recomenda. O professor decide. O estudante aprende. A plataforma mede e explica.
