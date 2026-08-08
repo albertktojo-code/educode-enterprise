@@ -1,5 +1,5 @@
 import { api, apiBlob } from '../../lib/api'
-import type { AssignmentSummary } from '../../types/delivery'
+import type { AssignmentSummary, StudentAssignmentCard } from '../../types/delivery'
 import type {
   AnimeAudioTrack,
   AnimeCaptionCue,
@@ -34,6 +34,8 @@ export const animeStudioApi = {
   listProjects: () => api.get<AnimeProjectSummary[]>('/anime-studio/projects'),
   listClassrooms: () => api.get<AnimeClassroom[]>('/classrooms'),
   listAssignments: () => api.get<AssignmentSummary[]>('/delivery/assignments'),
+  listStudentAssignments: () =>
+    api.get<StudentAssignmentCard[]>('/student/assignments'),
   listPublications: () =>
     api.get<AnimePublicationLibraryItem[]>('/anime-studio/publications'),
   publicationTranscript: (projectId: string) =>

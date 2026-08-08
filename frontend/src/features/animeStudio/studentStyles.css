@@ -39,9 +39,14 @@
 .anime-interactive-checkpoint span { color: #67e8f9; font-size: .68rem; font-weight: 900; letter-spacing: .13em; }
 .anime-interactive-checkpoint h2 { margin: 4px 0; font-size: 1.15rem; }
 .anime-interactive-checkpoint p { margin: 0; color: #c4b5d9; }
+.anime-checkpoint-progress { display: inline-flex; width: fit-content; margin-top: 9px; padding: 5px 8px; border-radius: 999px; color: #fde68a; background: rgba(245,158,11,.16); font-size: .7rem; }
+.anime-checkpoint-progress.is-complete { color: #a7f3d0; background: rgba(16,185,129,.16); }
+.anime-checkpoint-progress.is-unavailable { color: #fecdd3; background: rgba(244,63,94,.14); }
 .anime-interactive-checkpoint > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; }
 .anime-interactive-checkpoint a,.anime-interactive-checkpoint button { padding: 10px 13px; border: 1px solid #67e8f9; border-radius: 10px; color: #07131a; background: #67e8f9; font: inherit; font-weight: 800; text-decoration: none; cursor: pointer; }
 .anime-interactive-checkpoint button { color: #e9d5ff; border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); }
+.anime-interactive-checkpoint button:disabled { color: #aaa4ba; border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.025); cursor: not-allowed; }
+.anime-assignment-progress-warning { padding: 9px 12px; border-radius: 10px; color: #fde68a; background: rgba(245,158,11,.12); font-size: .75rem; }
 .anime-quality-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: end; }
 .anime-transcript header p { margin: 4px 0 12px; color: #aaa4ba; }
 .anime-transcript li { display: block; }
