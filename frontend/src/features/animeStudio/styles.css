@@ -214,6 +214,7 @@
   font-weight: 800;
   cursor: pointer;
   transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+  text-decoration: none;
 }
 
 .anime-button:hover:not(:disabled),

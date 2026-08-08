@@ -238,3 +238,34 @@ class StudentOwnProgressRead(BaseModel):
     strengths: list[SkillMetricRead]
     development_areas: list[SkillMetricRead]
     next_steps: list[str]
+
+
+class AnimeProgressMilestoneRead(BaseModel):
+    percentage: int
+    student_count: int
+    reach_rate: float
+
+
+class AnimeCheckpointAnalyticsRead(BaseModel):
+    checkpoint_id: UUID
+    label: str
+    timestamp_ms: int
+    assignment_id: UUID
+    reached_students: int
+    completed_students: int
+    completion_rate: float
+    average_percentage: float | None
+
+
+class AnimeAnalyticsRead(BaseModel):
+    project_id: UUID
+    title: str
+    render_revision: int | None
+    play_count: int
+    viewer_count: int
+    completed_viewer_count: int
+    video_completion_rate: float
+    average_max_progress: float
+    milestones: list[AnimeProgressMilestoneRead]
+    checkpoints: list[AnimeCheckpointAnalyticsRead]
+    data_quality_notes: list[str]

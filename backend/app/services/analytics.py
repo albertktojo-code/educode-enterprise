@@ -11,6 +11,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.anime_studio.models import AnimeProject
 from app.models.analytics import (
     AlertSeverity,
     AlertStatus,
@@ -29,6 +30,7 @@ from app.models.delivery import (
     AssignmentQuestion,
     AssignmentRecipient,
     AttemptStatus,
+    LearningEvent,
     MaterialAssignment,
     RecipientStatus,
     RecipientType,
@@ -39,6 +41,13 @@ from app.models.education import Classroom, ClassroomEnrollment
 from app.schemas.analytics import AnalyticsRefreshRequest
 
 VALID_ATTEMPT_STATUSES = {AttemptStatus.SUBMITTED, AttemptStatus.GRADED}
+ANIME_EVENT_TYPES = {
+    "anime_video_started",
+    "anime_video_progress",
+    "anime_checkpoint_opened",
+    "anime_checkpoint_completed",
+    "anime_video_completed",
+}
 
 
 @dataclass(slots=True)
@@ -948,6 +957,174 @@ async def assignment_analytics(
             {"label": label, "value": round(sum(values) / len(values), 2), "evidence_count": len(values)}
             for label, values in by_date.items()
         ],
+        "data_quality_notes": notes,
+    }
+
+
+async def anime_analytics(
+    session: AsyncSession,
+    *,
+    organization_id: UUID,
+    project_id: UUID,
+) -> dict[str, Any] | None:
+    project = await session.scalar(
+        select(AnimeProject).where(
+            AnimeProject.id == project_id,
+            AnimeProject.organization_id == organization_id,
+        )
+    )
+    if project is None:
+        return None
+    raw_publication = project.production_notes.get("publication")
+    publication = raw_publication if isinstance(raw_publication, dict) else {}
+    raw_checkpoints = publication.get("interactive_checkpoints", [])
+    checkpoints = raw_checkpoints if isinstance(raw_checkpoints, list) else []
+    events = list(
+        (
+            await session.scalars(
+                select(LearningEvent).where(
+                    LearningEvent.organization_id == organization_id,
+                    LearningEvent.event_type.in_(ANIME_EVENT_TYPES),
+                )
+            )
+        ).all()
+    )
+    project_events = [
+        event
+        for event in events
+        if str(event.event_metadata.get("anime_project_id", "")) == str(project_id)
+    ]
+    viewer_ids = {event.student_id for event in project_events}
+    completed_viewer_ids = {
+        event.student_id
+        for event in project_events
+        if event.event_type == "anime_video_completed"
+    }
+    play_count = sum(
+        event.event_type == "anime_video_started" for event in project_events
+    )
+    max_progress_by_student: dict[UUID, int] = defaultdict(int)
+    for viewer_id in viewer_ids:
+        max_progress_by_student[viewer_id] = 0
+    for event in project_events:
+        if event.event_type == "anime_video_completed":
+            max_progress_by_student[event.student_id] = 100
+            continue
+        if event.event_type != "anime_video_progress":
+            continue
+        try:
+            milestone = int(event.event_metadata.get("milestone_percentage", 0))
+        except (TypeError, ValueError):
+            milestone = 0
+        max_progress_by_student[event.student_id] = max(
+            max_progress_by_student[event.student_id], milestone
+        )
+    milestone_rows = []
+    for percentage in (25, 50, 75, 100):
+        student_count = sum(
+            maximum >= percentage for maximum in max_progress_by_student.values()
+        )
+        milestone_rows.append(
+            {
+                "percentage": percentage,
+                "student_count": student_count,
+                "reach_rate": round(
+                    student_count / len(viewer_ids) * 100, 2
+                ) if viewer_ids else 0.0,
+            }
+        )
+
+    assignment_ids: set[UUID] = set()
+    for checkpoint in checkpoints:
+        if not isinstance(checkpoint, dict):
+            continue
+        try:
+            assignment_ids.add(UUID(str(checkpoint.get("assignment_id"))))
+        except (TypeError, ValueError):
+            continue
+    attempts = list(
+        (
+            await session.scalars(
+                select(StudentAttempt).where(
+                    StudentAttempt.organization_id == organization_id,
+                    StudentAttempt.assignment_id.in_(assignment_ids),
+                    StudentAttempt.status.in_(VALID_ATTEMPT_STATUSES),
+                )
+            )
+        ).all()
+    ) if assignment_ids else []
+    best_attempt_by_student_assignment: dict[tuple[UUID, UUID], StudentAttempt] = {}
+    for attempt in attempts:
+        key = (attempt.student_id, attempt.assignment_id)
+        current = best_attempt_by_student_assignment.get(key)
+        if current is None or attempt.percentage > current.percentage:
+            best_attempt_by_student_assignment[key] = attempt
+
+    checkpoint_rows: list[dict[str, Any]] = []
+    for checkpoint in checkpoints:
+        if not isinstance(checkpoint, dict):
+            continue
+        try:
+            checkpoint_id = UUID(str(checkpoint.get("id")))
+            assignment_id = UUID(str(checkpoint.get("assignment_id")))
+            timestamp_ms = int(checkpoint.get("timestamp_ms", 0))
+        except (TypeError, ValueError):
+            continue
+        reached_ids = {
+            event.student_id
+            for event in project_events
+            if event.event_type == "anime_checkpoint_opened"
+            and str(event.event_metadata.get("checkpoint_id", "")) == str(checkpoint_id)
+        }
+        completed_attempts = [
+            attempt
+            for (student_id, attempt_assignment_id), attempt
+            in best_attempt_by_student_assignment.items()
+            if attempt_assignment_id == assignment_id and student_id in reached_ids
+        ]
+        completed_ids = {attempt.student_id for attempt in completed_attempts}
+        percentages = [attempt.percentage for attempt in completed_attempts]
+        checkpoint_rows.append(
+            {
+                "checkpoint_id": checkpoint_id,
+                "label": str(checkpoint.get("label") or "Atividade"),
+                "timestamp_ms": max(timestamp_ms, 0),
+                "assignment_id": assignment_id,
+                "reached_students": len(reached_ids),
+                "completed_students": len(completed_ids),
+                "completion_rate": round(
+                    len(completed_ids) / len(reached_ids) * 100, 2
+                ) if reached_ids else 0.0,
+                "average_percentage": round(
+                    sum(percentages) / len(percentages), 2
+                ) if percentages else None,
+            }
+        )
+
+    notes: list[str] = []
+    if not publication:
+        notes.append("O projeto ainda não possui uma publicação audiovisual.")
+    if not checkpoints:
+        notes.append("A publicação não possui checkpoints vinculados ao Assessment Delivery.")
+    if not project_events:
+        notes.append("Ainda não há eventos audiovisuais para esta publicação.")
+    average_max_progress = (
+        sum(max_progress_by_student.values()) / len(max_progress_by_student)
+        if max_progress_by_student else 0.0
+    )
+    return {
+        "project_id": project.id,
+        "title": project.title,
+        "render_revision": publication.get("render_revision"),
+        "play_count": play_count,
+        "viewer_count": len(viewer_ids),
+        "completed_viewer_count": len(completed_viewer_ids),
+        "video_completion_rate": round(
+            len(completed_viewer_ids) / len(viewer_ids) * 100, 2
+        ) if viewer_ids else 0.0,
+        "average_max_progress": round(average_max_progress, 2),
+        "milestones": milestone_rows,
+        "checkpoints": checkpoint_rows,
         "data_quality_notes": notes,
     }
 

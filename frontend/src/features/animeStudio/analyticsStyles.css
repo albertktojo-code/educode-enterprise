@@ -1,0 +1,66 @@
+.anime-analytics-shell {
+  min-height: calc(100vh - 2rem);
+  padding: clamp(1rem, 3vw, 2.5rem);
+  color: #f7f4ff;
+  background: radial-gradient(circle at 80% 0, rgba(236, 72, 153, .18), transparent 30rem), #0c0a18;
+  border-radius: 26px;
+}
+
+.anime-analytics-hero,
+.anime-analytics-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.anime-analytics-hero span,
+.anime-analytics-panel header span { color: #a78bfa; font-size: .72rem; font-weight: 800; letter-spacing: .12em; }
+.anime-analytics-hero h1 { margin: .35rem 0; font-size: clamp(1.8rem, 4vw, 3rem); }
+.anime-analytics-hero p { margin: 0; color: #b9b3cc; }
+.anime-analytics-hero a { padding: .75rem 1rem; color: white; text-decoration: none; border: 1px solid rgba(255,255,255,.18); border-radius: 12px; }
+
+.anime-analytics-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 2rem 0 1rem;
+}
+
+.anime-analytics-cards article,
+.anime-analytics-panel,
+.anime-data-quality {
+  padding: 1.25rem;
+  background: rgba(27, 24, 48, .82);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 18px;
+}
+
+.anime-analytics-cards span { display: block; margin-bottom: .5rem; color: #b9b3cc; font-size: .82rem; }
+.anime-analytics-cards strong { font-size: 1.75rem; }
+.anime-analytics-panel { margin-top: 1rem; }
+.anime-analytics-panel h2 { margin: .25rem 0 0; }
+.anime-analytics-panel small { color: #a9a4bc; }
+.anime-milestone-list { display: grid; gap: 1rem; padding: 0; list-style: none; }
+.anime-milestone-list li div { display: flex; justify-content: space-between; margin-bottom: .4rem; }
+.anime-milestone-list span { color: #b9b3cc; }
+.anime-milestone-list progress { width: 100%; accent-color: #8b5cf6; }
+.anime-checkpoint-analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.anime-checkpoint-analytics-grid article { padding: 1rem; background: rgba(255,255,255,.04); border-radius: 14px; }
+.anime-checkpoint-analytics-grid time { color: #22d3ee; font-weight: 800; }
+.anime-checkpoint-analytics-grid h3 { margin: .35rem 0 1rem; }
+.anime-checkpoint-analytics-grid dl { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin: 0; }
+.anime-checkpoint-analytics-grid dt { color: #a9a4bc; font-size: .76rem; }
+.anime-checkpoint-analytics-grid dd { margin: .2rem 0 0; font-weight: 800; }
+.anime-data-quality { margin-top: 1rem; color: #d8d3e5; }
+.anime-data-quality ul { margin-bottom: 0; }
+.anime-analytics-alert { margin-top: 1.5rem; padding: 1rem; color: #fecaca; background: rgba(127,29,29,.35); border-radius: 12px; }
+
+@media (max-width: 800px) {
+  .anime-analytics-cards { grid-template-columns: 1fr 1fr; }
+  .anime-analytics-hero { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 480px) {
+  .anime-analytics-cards { grid-template-columns: 1fr; }
+}

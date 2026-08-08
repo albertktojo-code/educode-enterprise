@@ -241,3 +241,34 @@ export interface AnimeMediaGeneration {
   created_at: string
   completed_at: string | null
 }
+
+export interface AnimeProgressMilestone {
+  percentage: number
+  student_count: number
+  reach_rate: number
+}
+
+export interface AnimeCheckpointAnalytics {
+  checkpoint_id: string
+  label: string
+  timestamp_ms: number
+  assignment_id: string
+  reached_students: number
+  completed_students: number
+  completion_rate: number
+  average_percentage: number | null
+}
+
+export interface AnimeAnalytics {
+  project_id: string
+  title: string
+  render_revision: number | null
+  play_count: number
+  viewer_count: number
+  completed_viewer_count: number
+  video_completion_rate: number
+  average_max_progress: number
+  milestones: AnimeProgressMilestone[]
+  checkpoints: AnimeCheckpointAnalytics[]
+  data_quality_notes: string[]
+}
