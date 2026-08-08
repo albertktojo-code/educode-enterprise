@@ -31,6 +31,7 @@ import { StudentAnalyticsPage } from './pages/StudentAnalyticsPage'
 import { StatisticsLabPage } from './pages/StatisticsLabPage'
 import { StatisticsAdvancedPage } from './pages/StatisticsAdvancedPage'
 import { StudentProgressPage } from './pages/StudentProgressPage'
+import { StudentPortfolioPage } from './pages/StudentPortfolioPage'
 import { AssignmentDetailPage } from './pages/AssignmentDetailPage'
 import { AssignmentsPage } from './pages/AssignmentsPage'
 import { ClassroomsPage } from './pages/ClassroomsPage'
@@ -118,6 +119,7 @@ export default function App() {
               <Route path="aluno" element={<StudentPortalPage />} />
               <Route path="aluno/atividades" element={<StudentAssignmentsPage />} />
               <Route path="aluno/progresso" element={<StudentProgressPage />} />
+              <Route path="aluno/portfolio" element={<StudentPortfolioPage />} />
               <Route path="aluno/minha-trilha" element={<StudentLearningPathPage />} />
               <Route path="aluno/atividades/:assignmentId" element={<StudentAssignmentPage />} />
               <Route path="disciplinas" element={<SubjectsPage />} />

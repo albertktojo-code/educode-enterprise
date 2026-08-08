@@ -119,6 +119,7 @@ export function StudentPortalPage() {
         </section>
 
         <nav className="student-portal-shortcuts" aria-label="Atalhos da área do estudante">
+          <Link to="/aluno/portfolio"><span aria-hidden="true">◆</span><strong>Meu portfólio</strong><small>Evidências e competências</small></Link>
           <Link to="/aluno/progresso"><span aria-hidden="true">↗</span><strong>Meu progresso</strong><small>Resultados e próximos desafios</small></Link>
           <Link to="/aluno/minha-trilha"><span aria-hidden="true">⌁</span><strong>Minha trilha</strong><small>Objetivos personalizados</small></Link>
           <Link to="/student/assessments"><span aria-hidden="true">✓</span><strong>Avaliações</strong><small>Atividades avaliativas disponíveis</small></Link>
