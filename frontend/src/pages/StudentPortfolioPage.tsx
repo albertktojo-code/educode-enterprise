@@ -11,12 +11,26 @@ import { api } from '../lib/api'
 import type { StudentOwnProgress } from '../types/analytics'
 import type { StudentAssignmentCard } from '../types/delivery'
 import './studentPortfolio.css'
+import './studentPortfolioCuration.css'
 
 interface PortfolioState {
   assignments: StudentAssignmentCard[]
   progress: StudentOwnProgress | null
   comics: ReaderRelease[]
   animes: AnimePublicationLibraryItem[]
+  entries: PortfolioEntry[]
+}
+
+interface PortfolioEntry {
+  id: string
+  assignment_id: string
+  attempt_id: string
+  title_snapshot: string
+  assignment_type_snapshot: string
+  percentage_snapshot: number
+  reflection: string
+  revision: number
+  completed_at_snapshot: string | null
 }
 
 const initialState: PortfolioState = {
@@ -24,6 +38,7 @@ const initialState: PortfolioState = {
   progress: null,
   comics: [],
   animes: [],
+  entries: [],
 }
 
 function percentage(value: number | null | undefined): string {
@@ -34,6 +49,8 @@ export function StudentPortfolioPage() {
   const [state, setState] = useState<PortfolioState>(initialState)
   const [loading, setLoading] = useState(true)
   const [unavailable, setUnavailable] = useState<string[]>([])
+  const [busyEntry, setBusyEntry] = useState<string | null>(null)
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     let active = true
@@ -42,6 +59,7 @@ export function StudentPortfolioPage() {
       api<StudentOwnProgress>('/analytics/student/progress'),
       comicReaderApi.releases(),
       animeStudioApi.listPublications(),
+      api<PortfolioEntry[]>('/student/portfolio/entries'),
     ] as const
 
     void Promise.allSettled(requests).then((results) => {
@@ -58,6 +76,7 @@ export function StudentPortfolioPage() {
         progress: value(1, null, 'competências'),
         comics: value(2, [], 'HQs'),
         animes: value(3, [], 'vídeos'),
+        entries: value(4, [], 'curadoria'),
       })
       setUnavailable(failed)
       setLoading(false)
@@ -79,6 +98,58 @@ export function StudentPortfolioPage() {
       skill,
     ])).values()].sort((left, right) => right.proficiency_score - left.proficiency_score)
   }, [state.progress])
+  const entriesByAssignment = useMemo(
+    () => new Map(state.entries.map((entry) => [entry.assignment_id, entry])),
+    [state.entries],
+  )
+
+  async function curateEvidence(assignmentId: string) {
+    setBusyEntry(assignmentId)
+    setNotice('')
+    try {
+      const entry = await api.post<PortfolioEntry>('/student/portfolio/entries', { assignment_id: assignmentId })
+      setState((current) => ({
+        ...current,
+        entries: [entry, ...current.entries.filter((item) => item.id !== entry.id)],
+      }))
+      setNotice('Evidência adicionada ao seu portfólio.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Não foi possível adicionar a evidência.')
+    } finally {
+      setBusyEntry(null)
+    }
+  }
+
+  async function saveReflection(entryId: string, reflection: string) {
+    setBusyEntry(entryId)
+    setNotice('')
+    try {
+      const entry = await api.patch<PortfolioEntry>(`/student/portfolio/entries/${entryId}`, { reflection })
+      setState((current) => ({
+        ...current,
+        entries: current.entries.map((item) => item.id === entry.id ? entry : item),
+      }))
+      setNotice('Reflexão salva com autoria e histórico de revisão.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Não foi possível salvar a reflexão.')
+    } finally {
+      setBusyEntry(null)
+    }
+  }
+
+  async function removeEvidence(entryId: string) {
+    setBusyEntry(entryId)
+    setNotice('')
+    try {
+      await api.delete<void>(`/student/portfolio/entries/${entryId}`)
+      setState((current) => ({ ...current, entries: current.entries.filter((item) => item.id !== entryId) }))
+      setNotice('Evidência removida da curadoria. O resultado original foi preservado.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Não foi possível remover a evidência.')
+    } finally {
+      setBusyEntry(null)
+    }
+  }
 
   return (
     <section className="student-portfolio" aria-busy={loading}>
@@ -93,13 +164,35 @@ export function StudentPortfolioPage() {
 
       {loading ? <LoadingState label="Organizando seu portfólio" rows={4} /> : null}
       {unavailable.length ? <div className="student-portfolio-warning" role="alert">Algumas evidências não puderam ser carregadas agora: {unavailable.join(', ')}.</div> : null}
+      <p className="student-portfolio-notice" aria-live="polite">{notice}</p>
 
       {!loading ? <>
         <section className="student-portfolio-metrics" aria-label="Resumo do portfólio">
-          <article><span>Evidências concluídas</span><strong>{completedAssignments.length}</strong></article>
+          <article><span>Evidências selecionadas</span><strong>{state.entries.length}</strong></article>
           <article><span>Média pessoal</span><strong>{percentage(state.progress?.average_percentage)}</strong></article>
           <article><span>Competências em destaque</span><strong>{skills.length}</strong></article>
           <article><span>Conteúdos da jornada</span><strong>{state.comics.length + state.animes.length}</strong></article>
+        </section>
+
+        <section className="student-portfolio-panel student-portfolio-curation">
+          <header><div><span>MINHA CURADORIA</span><h2>Evidências e reflexões autorais</h2></div></header>
+          {state.entries.length ? <div className="student-portfolio-curated-list">
+            {state.entries.map((entry) => <article key={entry.id}>
+              <div className="student-portfolio-curated-heading">
+                <div><span>{entry.assignment_type_snapshot.replaceAll('_', ' ')}</span><h3>{entry.title_snapshot}</h3></div>
+                <strong>{percentage(entry.percentage_snapshot)}</strong>
+              </div>
+              <form onSubmit={(event) => {
+                event.preventDefault()
+                const reflection = String(new FormData(event.currentTarget).get('reflection') ?? '')
+                void saveReflection(entry.id, reflection)
+              }}>
+                <label htmlFor={`reflection-${entry.id}`}>O que aprendi com esta experiência?</label>
+                <textarea id={`reflection-${entry.id}`} name="reflection" maxLength={2000} rows={3} defaultValue={entry.reflection} disabled={busyEntry === entry.id} />
+                <div><small>Revisão {entry.revision} · até 2.000 caracteres</small><button type="submit" disabled={busyEntry === entry.id}>Salvar reflexão</button><button type="button" className="danger" disabled={busyEntry === entry.id} onClick={() => void removeEvidence(entry.id)}>Remover da curadoria</button></div>
+              </form>
+            </article>)}
+          </div> : <EmptyState icon="activity" title="Escolha suas melhores evidências" description="Use o botão nas atividades concluídas para começar sua curadoria e registrar o que aprendeu." />}
         </section>
 
         <div className="student-portfolio-columns">
@@ -108,7 +201,7 @@ export function StudentPortfolioPage() {
             {completedAssignments.length ? <div className="student-portfolio-evidence-list">
               {completedAssignments.map((assignment) => <article key={assignment.id}>
                 <div><span>{assignment.assignment_type.replaceAll('_', ' ')}</span><h3>{assignment.title}</h3><small>{assignment.attempts_used} tentativa(s) registrada(s)</small></div>
-                <div><strong>{percentage(assignment.best_percentage)}</strong><Link to={`/aluno/atividades/${assignment.id}`}>Revisar evidência</Link></div>
+                <div><strong>{percentage(assignment.best_percentage)}</strong><Link to={`/aluno/atividades/${assignment.id}`}>Revisar evidência</Link>{entriesByAssignment.has(assignment.id) ? <small>Já está na curadoria</small> : <button type="button" disabled={busyEntry === assignment.id} onClick={() => void curateEvidence(assignment.id)}>Adicionar ao portfólio</button>}</div>
               </article>)}
             </div> : <EmptyState icon="activity" title="Seu portfólio está começando" description="As atividades concluídas aparecerão aqui como evidências da sua aprendizagem." />}
           </section>
@@ -135,7 +228,7 @@ export function StudentPortfolioPage() {
 
         <aside className="student-portfolio-scope">
           <strong>Sobre este portfólio</strong>
-          <p>Esta primeira versão reúne somente dados oficiais do EduCode. Reflexões autorais e certificados serão adicionados quando tiverem regras próprias de autoria, revisão e emissão.</p>
+          <p>As evidências selecionadas referenciam resultados oficiais do EduCode e não alteram a atividade original. Suas reflexões são privadas nesta versão. Certificados serão adicionados quando houver regras próprias de emissão e revogação.</p>
         </aside>
       </> : null}
     </section>

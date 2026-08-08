@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 import urllib.error
 import urllib.request
 
@@ -11,7 +10,13 @@ EMAIL = os.getenv("INITIAL_ADMIN_EMAIL", "admin@educode.com")
 PASSWORD = os.getenv("INITIAL_ADMIN_PASSWORD", "")
 
 
-def request_json(path: str, *, method: str = "GET", body: dict | None = None, token: str = "") -> dict:
+def request_json(
+    path: str,
+    *,
+    method: str = "GET",
+    body: dict | None = None,
+    token: str = "",
+) -> dict:
     data = json.dumps(body).encode("utf-8") if body is not None else None
     headers = {"Accept": "application/json"}
     if data is not None:
@@ -44,20 +49,30 @@ def main() -> int:
             body={"email": EMAIL, "password": PASSWORD},
         )
         access_token = str(tokens.get("access_token", ""))
-        checks.append(("login", bool(access_token), "token recebido" if access_token else "token ausente"))
+        checks.append(
+            ("login", bool(access_token), "token recebido" if access_token else "token ausente")
+        )
         if access_token:
             profile = request_json("/api/v1/auth/me", token=access_token)
-            checks.append(("profile", profile.get("email") == EMAIL.lower(), str(profile.get("email"))))
+            checks.append(
+                ("profile", profile.get("email") == EMAIL.lower(), str(profile.get("email")))
+            )
             version = request_json("/api/v1/platform/version", token=access_token)
             checks.append(
                 (
                     "platform_version",
-                    version.get("migration_revision") == "0056_anime_audiovisual",
+                    version.get("migration_revision") == "0057_student_portfolio",
                     str(version),
                 )
             )
             observability = request_json("/api/v1/observability/overview", token=access_token)
-            checks.append(("observability", bool(observability.get("generated_at")), str(observability.get("platform_status"))))
+            checks.append(
+                (
+                    "observability",
+                    bool(observability.get("generated_at")),
+                    str(observability.get("platform_status")),
+                )
+            )
 
     failed = [item for item in checks if not item[1]]
     for name, ok, detail in checks:
