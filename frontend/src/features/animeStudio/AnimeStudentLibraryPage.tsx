@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { EmptyState } from '../../components/EmptyState'
 import { LoadingState } from '../../components/LoadingState'
 import { animeStudioApi } from './api'
+import type { StudentAssignmentCard } from '../../types/delivery'
 import type {
   AnimeInteractiveCheckpoint,
   AnimePublicationLibraryItem,
@@ -37,7 +38,18 @@ function automaticRendition(item: AnimePublicationLibraryItem | null) {
     .find((rendition) => rendition.width <= targetWidth) ?? ordered[0]
 }
 
+function checkpointActivityPath(
+  projectId: string,
+  checkpoint: AnimeInteractiveCheckpoint,
+): string {
+  const returnPath = `/anime-library?project=${encodeURIComponent(projectId)}&checkpoint=${encodeURIComponent(checkpoint.id)}`
+  return `/aluno/atividades/${checkpoint.assignment_id}?returnTo=${encodeURIComponent(returnPath)}`
+}
+
 export function AnimeStudentLibraryPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedProjectId = searchParams.get('project')
+  const requestedCheckpointId = searchParams.get('checkpoint')
   const [items, setItems] = useState<AnimePublicationLibraryItem[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedRenditionId, setSelectedRenditionId] = useState('auto')
@@ -53,6 +65,9 @@ export function AnimeStudentLibraryPage() {
   const [durationSeconds, setDurationSeconds] = useState(0)
   const [resumeMessage, setResumeMessage] = useState('')
   const [activeCheckpoint, setActiveCheckpoint] = useState<AnimeInteractiveCheckpoint | null>(null)
+  const [assignmentProgress, setAssignmentProgress] = useState<StudentAssignmentCard[]>([])
+  const [assignmentProgressLoading, setAssignmentProgressLoading] = useState(true)
+  const [assignmentProgressError, setAssignmentProgressError] = useState('')
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const lastSavedSecond = useRef(-1)
   const shownCheckpointIds = useRef(new Set<string>())
@@ -61,11 +76,35 @@ export function AnimeStudentLibraryPage() {
     animeStudioApi.listPublications()
       .then((rows) => {
         setItems(rows)
-        setSelectedId(rows[0]?.publication.project_id ?? null)
+        setSelectedId(
+          rows.some((row) => row.publication.project_id === requestedProjectId)
+            ? requestedProjectId
+            : rows[0]?.publication.project_id ?? null,
+        )
       })
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false))
+  }, [requestedProjectId])
+
+  const refreshAssignmentProgress = useCallback(async () => {
+    try {
+      setAssignmentProgress(await animeStudioApi.listStudentAssignments())
+      setAssignmentProgressError('')
+    } catch (reason) {
+      setAssignmentProgressError(
+        reason instanceof Error ? reason.message : 'Não foi possível conferir as atividades.',
+      )
+    } finally {
+      setAssignmentProgressLoading(false)
+    }
   }, [])
+
+  useEffect(() => {
+    void refreshAssignmentProgress()
+    const refreshOnFocus = () => void refreshAssignmentProgress()
+    window.addEventListener('focus', refreshOnFocus)
+    return () => window.removeEventListener('focus', refreshOnFocus)
+  }, [refreshAssignmentProgress])
 
   useEffect(() => {
     if (!selectedId) return undefined
@@ -122,11 +161,60 @@ export function AnimeStudentLibraryPage() {
         .toLocaleLowerCase('pt-BR').includes(query),
     )
   }, [items, search])
+  const assignmentProgressById = useMemo(
+    () => new Map(assignmentProgress.map((assignment) => [assignment.id, assignment])),
+    [assignmentProgress],
+  )
+  const activeAssignment = activeCheckpoint
+    ? assignmentProgressById.get(activeCheckpoint.assignment_id)
+    : undefined
+  const activeAssignmentCompleted = activeAssignment?.progress_status === 'completed'
+  const activeAssignmentUnavailable = (
+    Boolean(activeCheckpoint)
+    && !assignmentProgressLoading
+    && !activeAssignment
+  )
+  const activeCheckpointBlocked = Boolean(
+    activeCheckpoint?.required
+    && (assignmentProgressLoading || (activeAssignment && !activeAssignmentCompleted)),
+  )
+
+  useEffect(() => {
+    if (
+      !selected
+      || selected.publication.project_id !== requestedProjectId
+      || !requestedCheckpointId
+    ) return
+    const checkpoint = selected.publication.interactive_checkpoints.find(
+      (item) => item.id === requestedCheckpointId,
+    )
+    if (!checkpoint) return
+    shownCheckpointIds.current.add(checkpoint.id)
+    setActiveCheckpoint(checkpoint)
+    setResumeMessage(
+      assignmentProgressById.get(checkpoint.assignment_id)?.progress_status === 'completed'
+        ? 'Atividade concluída. Continue o vídeo.'
+        : 'Retomado no checkpoint da atividade.',
+    )
+  }, [assignmentProgressById, requestedCheckpointId, requestedProjectId, selected])
 
   function restoreProgress(video: HTMLVideoElement) {
     if (!selected) return
     video.playbackRate = playbackRate
     setDurationSeconds(Number.isFinite(video.duration) ? video.duration : 0)
+    const requestedCheckpoint = selected.publication.interactive_checkpoints.find(
+      (checkpoint) => checkpoint.id === requestedCheckpointId,
+    )
+    if (requestedCheckpoint) {
+      const checkpointPosition = Math.min(
+        requestedCheckpoint.timestamp_ms / 1000,
+        Math.max(video.duration - 0.1, 0),
+      )
+      video.currentTime = checkpointPosition
+      setPositionSeconds(checkpointPosition)
+      setResumeMessage(`Retomado em ${formatDuration(requestedCheckpoint.timestamp_ms)}.`)
+      return
+    }
     try {
       const stored = JSON.parse(localStorage.getItem(progressKey(
         selected.publication.project_id,
@@ -160,6 +248,7 @@ export function AnimeStudentLibraryPage() {
       shownCheckpointIds.current.add(checkpoint.id)
       setActiveCheckpoint(checkpoint)
       if (checkpoint.pause_playback) video.pause()
+      else if (checkpoint.required) video.pause()
     }
     if (!force && second === lastSavedSecond.current) return
     lastSavedSecond.current = second
@@ -181,6 +270,13 @@ export function AnimeStudentLibraryPage() {
   }
 
   function continuePlayback() {
+    if (activeCheckpointBlocked) {
+      setResumeMessage('Conclua a atividade obrigatória para continuar o vídeo.')
+      return
+    }
+    if (activeAssignmentUnavailable) {
+      setResumeMessage('A atividade não está disponível para sua conta; o vídeo foi liberado.')
+    }
     setActiveCheckpoint(null)
     if (videoRef.current) void videoRef.current.play()
   }
@@ -199,13 +295,14 @@ export function AnimeStudentLibraryPage() {
       {!loading && items.length ? <div className="anime-library-layout">
         <aside aria-label="Vídeos disponíveis">
           <strong>{filtered.length} {filtered.length === 1 ? 'vídeo' : 'vídeos'}</strong>
-          <div>{filtered.map((item) => <button type="button" className={selectedId === item.publication.project_id ? 'is-active' : ''} key={item.publication.project_id} onClick={() => { setSelectedId(item.publication.project_id); setSelectedRenditionId('auto'); setResumeMessage('') }}><span aria-hidden="true">▶</span><div><b>{item.publication.title}</b><small>{formatDuration(item.duration_ms)} · {item.publication.width}×{item.publication.height}</small></div></button>)}</div>
+          <div>{filtered.map((item) => <button type="button" className={selectedId === item.publication.project_id ? 'is-active' : ''} key={item.publication.project_id} onClick={() => { setSelectedId(item.publication.project_id); setSelectedRenditionId('auto'); setResumeMessage(''); setSearchParams({ project: item.publication.project_id }, { replace: true }) }}><span aria-hidden="true">▶</span><div><b>{item.publication.title}</b><small>{formatDuration(item.duration_ms)} · {item.publication.width}×{item.publication.height}</small></div></button>)}</div>
         </aside>
 
         <main>
           {selected ? <>
             <div className="anime-student-player">{mediaLoading || !videoUrl ? <div role="status">Preparando vídeo…</div> : <video ref={videoRef} key={`${selectedId}-${selectedRendition?.asset_file_id ?? 'source'}`} controls playsInline preload="metadata" onLoadedMetadata={(event) => restoreProgress(event.currentTarget)} onTimeUpdate={(event) => saveProgress(event.currentTarget)} onPause={(event) => saveProgress(event.currentTarget, true)} onEnded={(event) => { saveProgress(event.currentTarget, true); setResumeMessage('Vídeo concluído.') }}><source src={videoUrl} type={`video/${selected.publication.format}`} />{captionUrl ? <track default kind="captions" src={captionUrl} srcLang={selected.publication.caption_languages[0] ?? 'pt-BR'} label="Português" /> : null}</video>}</div>
-            {activeCheckpoint ? <section className="anime-interactive-checkpoint" role="dialog" aria-labelledby={`checkpoint-${activeCheckpoint.id}`}><div><span>ATIVIDADE INTEGRADA</span><h2 id={`checkpoint-${activeCheckpoint.id}`}>{activeCheckpoint.label}</h2><p>{activeCheckpoint.required ? 'Esta etapa faz parte da sequência de aprendizagem.' : 'Atividade complementar relacionada a este trecho.'}</p></div><div><Link to={`/aluno/atividades/${activeCheckpoint.assignment_id}`}>Abrir atividade</Link><button type="button" onClick={continuePlayback}>Continuar vídeo</button></div></section> : null}
+            {activeCheckpoint ? <section className="anime-interactive-checkpoint" role="dialog" aria-labelledby={`checkpoint-${activeCheckpoint.id}`}><div><span>ATIVIDADE INTEGRADA</span><h2 id={`checkpoint-${activeCheckpoint.id}`}>{activeCheckpoint.label}</h2><p>{assignmentProgressLoading ? 'Conferindo seu progresso…' : activeAssignmentCompleted ? 'Atividade concluída. Você pode continuar.' : activeAssignmentUnavailable ? 'Esta atividade não está disponível para sua conta.' : activeCheckpoint.required ? 'Conclua esta etapa para continuar a sequência.' : 'Atividade complementar relacionada a este trecho.'}</p><strong className={`anime-checkpoint-progress ${activeAssignmentCompleted ? 'is-complete' : activeAssignmentUnavailable ? 'is-unavailable' : 'is-pending'}`}>{activeAssignmentCompleted ? '✓ Concluída' : activeAssignmentUnavailable ? 'Indisponível' : activeAssignment?.progress_status === 'in_progress' ? 'Em andamento' : 'Pendente'}</strong></div><div>{!activeAssignmentUnavailable ? <Link to={checkpointActivityPath(selected.publication.project_id, activeCheckpoint)}>{activeAssignmentCompleted ? 'Revisar atividade' : activeAssignment?.progress_status === 'in_progress' ? 'Continuar atividade' : 'Abrir atividade'}</Link> : null}<button type="button" onClick={continuePlayback} disabled={activeCheckpointBlocked}>{activeCheckpointBlocked ? 'Conclua para continuar' : 'Continuar vídeo'}</button></div></section> : null}
+            {assignmentProgressError ? <div className="anime-assignment-progress-warning" role="status">Não foi possível atualizar as atividades agora. {assignmentProgressError}</div> : null}
             <div className="anime-playback-progress" aria-live="polite"><div><span>{resumeMessage || 'Seu progresso é salvo neste dispositivo.'}</span><strong>{durationSeconds ? `${Math.round((positionSeconds / durationSeconds) * 100)}%` : '0%'}</strong></div><progress max={Math.max(durationSeconds, 1)} value={positionSeconds}>{positionSeconds}</progress></div>
             <section className="anime-student-copy"><div><span>PUBLICADO PELO PROFESSOR</span><h2>{selected.publication.title}</h2><p>{selected.synopsis || 'Produção audiovisual educacional da sua turma.'}</p></div><div className="anime-quality-tools"><label>Velocidade<select value={playbackRate} onChange={(event) => { const rate = Number(event.target.value); setPlaybackRate(rate); if (videoRef.current) videoRef.current.playbackRate = rate }}><option value={0.75}>0,75×</option><option value={1}>Normal</option><option value={1.25}>1,25×</option><option value={1.5}>1,5×</option><option value={2}>2×</option></select></label>{selected.publication.renditions.length > 1 ? <label>Qualidade<select value={selectedRenditionId} onChange={(event) => setSelectedRenditionId(event.target.value)}><option value="auto">Automática</option>{selected.publication.renditions.map((rendition) => <option value={rendition.asset_file_id} key={rendition.asset_file_id}>{rendition.label} · {rendition.width}×{rendition.height}</option>)}</select></label> : null}<ul><li>{selected.publication.caption_languages.length ? 'CC Legendas' : 'Sem legendas'}</li><li>{selected.publication.includes_transcript ? 'Transcrição navegável' : 'Sem transcrição'}</li><li>{selected.publication.includes_audio_description ? 'Audiodescrição disponível' : 'Áudio original'}</li>{selected.publication.interactive_checkpoints.length ? <li>{selected.publication.interactive_checkpoints.length} atividade(s) integrada(s)</li> : null}</ul></div></section>
             {selected.publication.includes_transcript ? <section className="anime-transcript"><header><span>ACESSIBILIDADE</span><h2>Transcrição</h2><p>Selecione um trecho para avançar o vídeo.</p></header>{transcript.length ? <ol>{transcript.map((cue, index) => <li className={cue.cue_kind === 'audio_description' ? 'is-audio-description' : ''} key={`${cue.start_ms}-${index}`}><button type="button" onClick={() => seekTo(cue.start_ms)}><time>{formatDuration(cue.start_ms)}</time><p>{cue.speaker ? <strong>{cue.speaker}: </strong> : null}{cue.text}</p></button></li>)}</ol> : <p>A transcrição ainda não possui trechos.</p>}</section> : null}

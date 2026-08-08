@@ -32,6 +32,7 @@ def test_student_player_pauses_and_routes_to_the_canonical_assignment() -> None:
 
     assert "shownCheckpointIds" in player
     assert "if (checkpoint.pause_playback) video.pause()" in player
-    assert 'to={`/aluno/atividades/${activeCheckpoint.assignment_id}`}' in player
+    assert "/aluno/atividades/${checkpoint.assignment_id}" in player
+    assert "activeCheckpoint.assignment_id" in player
     assert "Abrir atividade" in player
     assert "Continuar vídeo" in player
