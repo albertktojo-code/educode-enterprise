@@ -50,6 +50,7 @@ from app.institutional_governance.router import router as institutional_governan
 from app.instrument_governance.router import router as instrument_governance_router
 from app.intervention_effectiveness.router import router as intervention_effectiveness_router
 from app.intervention_orchestration.router import router as intervention_orchestration_router
+from app.student_portfolio.router import router as student_portfolio_router
 from app.ui_preferences.router import router as ui_preferences_router
 
 api_router = APIRouter()
@@ -115,5 +116,6 @@ api_router.include_router(intervention_orchestration_router)
 api_router.include_router(intervention_effectiveness_router)
 api_router.include_router(institutional_governance_router)
 api_router.include_router(ui_preferences_router)
+api_router.include_router(student_portfolio_router)
 api_router.include_router(anime_studio_router)
 api_router.include_router(anime_media_router)

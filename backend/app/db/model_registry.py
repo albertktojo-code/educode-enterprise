@@ -26,6 +26,7 @@ from app.intervention_effectiveness import models as intervention_effectiveness_
 from app.intervention_orchestration import (
     __version__ as intervention_orchestration_version,  # noqa: F401
 )
+from app.student_portfolio import models as student_portfolio_models  # noqa: F401
 
 
 def registered_table_names() -> tuple[str, ...]:
@@ -38,6 +39,7 @@ EXPECTED_INCREMENTAL_PREFIXES = (
     "assessment_delivery_",
     "instrument_",
     "anime_",
+    "student_portfolio_",
     "assessment_review_",
     "assessment_analytics_",
     "hq_",

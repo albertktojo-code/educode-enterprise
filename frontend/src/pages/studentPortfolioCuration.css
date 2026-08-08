@@ -1,0 +1,81 @@
+.student-portfolio-notice {
+  min-height: 1.3rem;
+  margin: 0;
+  color: #713f12;
+  font-weight: 700;
+}
+
+.student-portfolio-curated-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.student-portfolio-curated-list > article {
+  display: grid;
+  gap: 12px;
+  padding: 17px;
+  border: 1px solid #f3dfb7;
+  border-radius: 16px;
+  background: #fffcf5;
+}
+
+.student-portfolio-curated-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.student-portfolio-curated-heading span {
+  color: #a16207;
+  font-size: .7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.student-portfolio-curated-heading h3 { margin: 4px 0; }
+.student-portfolio-curated-heading > strong { color: #92400e; }
+.student-portfolio-curated-list form { display: grid; gap: 8px; }
+.student-portfolio-curated-list label { font-weight: 800; }
+
+.student-portfolio-curated-list textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px;
+  border: 1px solid #d7dae2;
+  border-radius: 11px;
+  resize: vertical;
+  font: inherit;
+}
+
+.student-portfolio-curated-list form > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.student-portfolio-curated-list form small {
+  margin-right: auto;
+  color: #697083;
+}
+
+.student-portfolio button {
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  background: #92400e;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.student-portfolio button.danger { color: #9f1239; background: #fff1f2; }
+.student-portfolio button:disabled { cursor: not-allowed; opacity: .55; }
+.student-portfolio button:focus-visible,
+.student-portfolio textarea:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+
+@media (max-width: 960px) {
+  .student-portfolio-curated-list { grid-template-columns: 1fr; }
+}
