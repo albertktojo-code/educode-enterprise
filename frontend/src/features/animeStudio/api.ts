@@ -2,6 +2,7 @@ import { api, apiBlob } from '../../lib/api'
 import type { AssignmentSummary, StudentAssignmentCard } from '../../types/delivery'
 import type {
   AnimeAudioTrack,
+  AnimeAnalytics,
   AnimeCaptionCue,
   AnimeClassroom,
   AnimeMediaUpload,
@@ -36,6 +37,15 @@ export const animeStudioApi = {
   listAssignments: () => api.get<AssignmentSummary[]>('/delivery/assignments'),
   listStudentAssignments: () =>
     api.get<StudentAssignmentCard[]>('/student/assignments'),
+  getAnalytics: (projectId: string) =>
+    api.get<AnimeAnalytics>(`/analytics/anime/${projectId}`),
+  registerLearningEvent: (
+    assignmentId: string,
+    input: { event_type: string; metadata: Record<string, unknown> },
+  ) => api.post<{ status: string }>(
+    `/student/assignments/${assignmentId}/events`,
+    input,
+  ),
   listPublications: () =>
     api.get<AnimePublicationLibraryItem[]>('/anime-studio/publications'),
   publicationTranscript: (projectId: string) =>

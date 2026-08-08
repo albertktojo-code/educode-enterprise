@@ -16,16 +16,17 @@ from app.db.session import get_db_session
 from app.models.analytics import (
     AlertStatus,
     AnalyticsRefreshJob,
-    StudentSkillMetric,
     InterventionStatus,
     LearningAlert,
     LearningIntervention,
+    StudentSkillMetric,
 )
 from app.models.auth import Membership, OrganizationRole, User
 from app.schemas.analytics import (
     AlertUpdateRequest,
     AnalyticsRefreshRead,
     AnalyticsRefreshRequest,
+    AnimeAnalyticsRead,
     AssignmentAnalyticsRead,
     ClassroomAnalyticsRead,
     DashboardSummary,
@@ -38,6 +39,7 @@ from app.schemas.analytics import (
     StudentOwnProgressRead,
 )
 from app.services.analytics import (
+    anime_analytics,
     assignment_analytics,
     classroom_analytics,
     create_intervention,
@@ -170,6 +172,22 @@ async def assignment_metrics(
     if result is None:
         raise HTTPException(status_code=404, detail="Publicação não encontrada")
     return AssignmentAnalyticsRead.model_validate(result)
+
+
+@router.get("/anime/{project_id}", response_model=AnimeAnalyticsRead)
+async def anime_metrics(
+    project_id: UUID,
+    session: AsyncSession = Depends(get_db_session),
+    membership: Membership = Depends(require_roles(*TEACHER_ROLES)),
+) -> AnimeAnalyticsRead:
+    result = await anime_analytics(
+        session,
+        organization_id=org_id(membership),
+        project_id=project_id,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Projeto audiovisual não encontrado")
+    return AnimeAnalyticsRead.model_validate(result)
 
 
 @router.get("/alerts", response_model=list[LearningAlertRead])

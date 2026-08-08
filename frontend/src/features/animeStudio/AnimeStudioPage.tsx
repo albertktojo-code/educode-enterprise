@@ -4,6 +4,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { Link } from 'react-router-dom'
 
 import { animeStudioApi } from './api'
 import { AnimeCheckpointEditor } from './AnimeCheckpointEditor'
@@ -808,6 +809,9 @@ export function AnimeStudioPage() {
                 <span className={`anime-status status-${project.status}`}>
                   <i /> {statusLabels[project.status] ?? project.status}
                 </span>
+                <Link className="anime-button ghost" to={`/analytics/anime/${project.id}`}>
+                  Ver Analytics
+                </Link>
                 <button
                   type="button"
                   className="anime-button primary"
