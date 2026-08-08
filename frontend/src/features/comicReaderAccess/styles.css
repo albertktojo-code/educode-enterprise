@@ -37,6 +37,18 @@
   gap: 8px;
 }
 
+.reader-zoom-control {
+  display: grid;
+  grid-template-columns: 36px minmax(90px, 1fr) 36px;
+  align-items: center;
+  gap: 6px;
+}
+
+.reader-zoom-control button {
+  min-height: 34px;
+  padding: 0;
+}
+
 .reader-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
@@ -66,6 +78,23 @@
 .reader-page-stack {
   display: grid;
   gap: 20px;
+}
+
+.reader-surface {
+  zoom: var(--reader-zoom, 1);
+}
+
+.reader-orientation-portrait .reader-page-stack:not(.reader-vertical) {
+  width: min(760px, 100%);
+  margin-inline: auto;
+}
+
+.reader-orientation-portrait .reader-page-grid {
+  grid-template-columns: 1fr;
+}
+
+.reader-orientation-landscape .reader-page-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .reader-page-grid {
@@ -121,6 +150,30 @@
 .reader-alt-text {
   padding: 10px;
   border-left: 4px solid currentColor;
+}
+
+.reader-descriptions {
+  display: grid;
+  gap: 8px;
+}
+
+.reader-descriptions p {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px;
+  border-left: 4px solid currentColor;
+}
+
+.reader-audio-description {
+  background: #f6f2ff;
+}
+
+.reader-screen-reader .reader-panel-card:focus-within,
+.reader-screen-reader button:focus-visible,
+.reader-screen-reader a:focus-visible {
+  outline: 4px solid #ffbf47;
+  outline-offset: 3px;
 }
 
 .reader-assessment {
@@ -207,6 +260,9 @@
 
 @media (max-width: 980px) {
   .reader-workspace {
+    grid-template-columns: 1fr;
+  }
+  .reader-orientation-landscape .reader-page-grid {
     grid-template-columns: 1fr;
   }
 }

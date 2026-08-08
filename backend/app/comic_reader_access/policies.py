@@ -16,6 +16,8 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     "caption_mode": "VISIBLE",
     "focus_mode": False,
     "narration_rate": 1.0,
+    "zoom_level": 1.0,
+    "orientation": "AUTO",
 }
 
 PRESENTATION_TRANSITIONS = {
@@ -43,6 +45,11 @@ def normalize_preferences(
     result["font_scale"] = min(2.5, max(0.75, float(result.get("font_scale", 1.0))))
     result["line_spacing"] = min(2.5, max(1.0, float(result.get("line_spacing", 1.4))))
     result["narration_rate"] = min(2.0, max(0.5, float(result.get("narration_rate", 1.0))))
+    result["zoom_level"] = min(2.5, max(0.5, float(result.get("zoom_level", 1.0))))
+    orientation = str(result.get("orientation", "AUTO")).upper()
+    result["orientation"] = (
+        orientation if orientation in {"AUTO", "PORTRAIT", "LANDSCAPE"} else "AUTO"
+    )
     return result
 
 

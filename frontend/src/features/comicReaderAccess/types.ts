@@ -1,4 +1,5 @@
 export type ReaderMode = "PAGE" | "PANEL" | "VERTICAL" | "FOCUS";
+export type ReaderOrientation = "AUTO" | "PORTRAIT" | "LANDSCAPE";
 
 export interface ReaderPreferences {
   reader_mode: ReaderMode;
@@ -12,6 +13,8 @@ export interface ReaderPreferences {
   caption_mode: "VISIBLE" | "ON_DEMAND" | "HIDDEN";
   focus_mode: boolean;
   narration_rate: number;
+  zoom_level: number;
+  orientation: ReaderOrientation;
 }
 
 export interface ReaderRelease {

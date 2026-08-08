@@ -29,6 +29,8 @@ const DEFAULT_PREFERENCES: ReaderPreferences = {
   caption_mode: "VISIBLE",
   focus_mode: false,
   narration_rate: 1,
+  zoom_level: 1,
+  orientation: "AUTO",
 };
 
 function orderPanels(panels: ReaderPanel[] | undefined): ReaderPanel[] {
@@ -155,6 +157,12 @@ export function ComicReaderPage() {
       .filter((value): value is string => Boolean(value))
       .join(". ");
   }, [currentPage, manifest, pageIndex, panelIndex, panels]);
+
+  useEffect(() => {
+    if (!manifest || !preferences.auto_play_narration || !narrationText) return undefined;
+    narrate();
+    return () => window.speechSynthesis.cancel();
+  }, [manifest?.release.id, narrationText, preferences.auto_play_narration, preferences.narration_rate]);
 
   async function persist(
     nextPage: number,
@@ -333,6 +341,7 @@ export function ComicReaderPage() {
   const style = {
     "--reader-font-scale": preferences.font_scale,
     "--reader-line-spacing": preferences.line_spacing,
+    "--reader-zoom": preferences.zoom_level,
   } as CSSProperties;
 
   return (
@@ -344,6 +353,8 @@ export function ComicReaderPage() {
         preferences.reader_mode === "FOCUS" || preferences.focus_mode
           ? "reader-focus"
           : "",
+        `reader-orientation-${preferences.orientation.toLowerCase()}`,
+        preferences.screen_reader_mode ? "reader-screen-reader" : "",
       ].join(" ")}
       style={style}
     >

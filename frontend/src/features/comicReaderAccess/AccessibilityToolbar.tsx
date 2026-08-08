@@ -1,4 +1,4 @@
-import type { ReaderMode, ReaderPreferences } from "./types";
+import type { ReaderMode, ReaderOrientation, ReaderPreferences } from "./types";
 
 export function AccessibilityToolbar({
   preferences,
@@ -43,6 +43,35 @@ export function AccessibilityToolbar({
           value={preferences.font_scale}
           onChange={(event) => set("font_scale", Number(event.target.value))}
         />
+      </label>
+
+      <label>
+        Zoom da página · {Math.round(preferences.zoom_level * 100)}%
+        <span className="reader-zoom-control">
+          <button type="button" aria-label="Diminuir zoom" onClick={() => set("zoom_level", Math.max(0.5, Number((preferences.zoom_level - 0.1).toFixed(1))))}>−</button>
+          <input
+            aria-label="Nível de zoom"
+            type="range"
+            min="0.5"
+            max="2.5"
+            step="0.1"
+            value={preferences.zoom_level}
+            onChange={(event) => set("zoom_level", Number(event.target.value))}
+          />
+          <button type="button" aria-label="Aumentar zoom" onClick={() => set("zoom_level", Math.min(2.5, Number((preferences.zoom_level + 0.1).toFixed(1))))}>+</button>
+        </span>
+      </label>
+
+      <label>
+        Orientação
+        <select
+          value={preferences.orientation}
+          onChange={(event) => set("orientation", event.target.value as ReaderOrientation)}
+        >
+          <option value="AUTO">Automática</option>
+          <option value="PORTRAIT">Retrato</option>
+          <option value="LANDSCAPE">Paisagem</option>
+        </select>
       </label>
 
       <label>
@@ -94,6 +123,24 @@ export function AccessibilityToolbar({
           onChange={(event) => set("show_alt_text", event.target.checked)}
         />
         Mostrar descrição alternativa
+      </label>
+
+      <label className="reader-check">
+        <input
+          type="checkbox"
+          checked={preferences.screen_reader_mode}
+          onChange={(event) => set("screen_reader_mode", event.target.checked)}
+        />
+        Modo leitor de tela
+      </label>
+
+      <label className="reader-check">
+        <input
+          type="checkbox"
+          checked={preferences.auto_play_narration}
+          onChange={(event) => set("auto_play_narration", event.target.checked)}
+        />
+        Narrar ao avançar
       </label>
 
       <div className="button-row">
