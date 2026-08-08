@@ -210,6 +210,11 @@ const studentGroups: NavGroup[] = [
         icon: "↗",
       },
       {
+        to: "/aluno/portfolio",
+        label: "Meu portfólio",
+        icon: "◆",
+      },
+      {
         to: "/aluno/minha-trilha",
         label: "Minha trilha",
         icon: "⌁",
