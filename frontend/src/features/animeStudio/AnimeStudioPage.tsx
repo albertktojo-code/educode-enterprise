@@ -6,6 +6,8 @@ import {
 } from 'react'
 
 import { animeStudioApi } from './api'
+import { AnimeCheckpointEditor } from './AnimeCheckpointEditor'
+import { readProjectCheckpoints } from './checkpointUtils'
 import {
   overlappingCaptionIds,
   parseCaptionFile,
@@ -17,6 +19,7 @@ import type {
   AnimeClassroom,
   AnimeMediaGeneration,
   AnimeMediaGenerationKind,
+  AnimeInteractiveCheckpoint,
   AnimeProject,
   AnimeProjectSummary,
   AnimePublication,
@@ -24,9 +27,10 @@ import type {
   AnimeRenderJob,
   AnimeScene,
 } from './types'
+import type { AssignmentSummary } from '../../types/delivery'
 import './styles.css'
 
-type StudioTab = 'storyboard' | 'generation' | 'audio' | 'captions' | 'render'
+type StudioTab = 'storyboard' | 'generation' | 'audio' | 'captions' | 'activities' | 'render'
 
 const statusLabels: Record<string, string> = {
   draft: 'Rascunho',
@@ -275,6 +279,7 @@ export function AnimeStudioPage() {
   const [selectedRenderId, setSelectedRenderId] = useState<string | null>(null)
   const [comparisonRenderId, setComparisonRenderId] = useState<string | null>(null)
   const [classrooms, setClassrooms] = useState<AnimeClassroom[]>([])
+  const [assignments, setAssignments] = useState<AssignmentSummary[]>([])
 
   const loadProjects = useCallback(async () => {
     const rows = await animeStudioApi.listProjects()
@@ -298,7 +303,11 @@ export function AnimeStudioPage() {
 
   useEffect(() => {
     setLoading(true)
-    void Promise.all([loadProjects(), animeStudioApi.listClassrooms().then(setClassrooms)])
+    void Promise.all([
+      loadProjects(),
+      animeStudioApi.listClassrooms().then(setClassrooms),
+      animeStudioApi.listAssignments().then(setAssignments),
+    ])
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Falha ao carregar produções'))
       .finally(() => setLoading(false))
   }, [loadProjects])
@@ -384,6 +393,10 @@ export function AnimeStudioPage() {
   const totalDuration = useMemo(
     () => project?.scenes.reduce((total, scene) => total + scene.duration_ms, 0) ?? 0,
     [project?.scenes],
+  )
+  const interactiveCheckpoints = useMemo(
+    () => project ? readProjectCheckpoints(project) : [],
+    [project],
   )
   const captionConflicts = useMemo(
     () => overlappingCaptionIds(project?.captions ?? []),
@@ -746,6 +759,22 @@ export function AnimeStudioPage() {
     }, 'Versão aprovada publicada para as turmas selecionadas.')
   }
 
+  async function saveInteractiveCheckpoints(
+    checkpoints: AnimeInteractiveCheckpoint[],
+    successMessage: string,
+  ) {
+    if (!project) return
+    await execute(
+      () => animeStudioApi.updateProject(project.id, {
+        production_notes: {
+          ...project.production_notes,
+          interactive_checkpoints: checkpoints,
+        },
+      }).then(() => undefined),
+      successMessage,
+    )
+  }
+
   if (loading && !project && projects.length === 0) {
     return (
       <div className="anime-loading" role="status" aria-live="polite">
@@ -815,6 +844,7 @@ export function AnimeStudioPage() {
               <article><span>Duração</span><strong>{formatDuration(totalDuration)}</strong><small>estimada</small></article>
               <article><span>Áudio</span><strong>{project.audio_tracks.length}</strong><small>faixas</small></article>
               <article><span>Acessibilidade</span><strong>{project.captions.length}</strong><small>legendas</small></article>
+              <article><span>Interações</span><strong>{interactiveCheckpoints.length}</strong><small>atividades</small></article>
             </section>
 
             <nav className="anime-tabs" aria-label="Ferramentas do Estúdio Anime">
@@ -823,6 +853,7 @@ export function AnimeStudioPage() {
                 ['generation', 'Gerar mídia', '✦'],
                 ['audio', 'Áudio', '♫'],
                 ['captions', 'Legendas', 'CC'],
+                ['activities', 'Atividades', '◇'],
                 ['render', 'Render e revisão', '▶'],
               ] as const).map(([value, label, icon]) => (
                 <button
@@ -1092,6 +1123,16 @@ export function AnimeStudioPage() {
                   <div className="anime-caption-export"><button type="button" className="anime-button ghost" onClick={() => exportCaptions('srt')} disabled={!project.captions.length}>Exportar SRT</button><button type="button" className="anime-button ghost" onClick={() => exportCaptions('vtt')} disabled={!project.captions.length}>Exportar VTT</button></div>
                 </form>
               </section>
+            ) : null}
+
+            {tab === 'activities' ? (
+              <AnimeCheckpointEditor
+                project={project}
+                assignments={assignments}
+                durationMs={totalDuration}
+                busy={busy}
+                onChange={saveInteractiveCheckpoints}
+              />
             ) : null}
 
             {tab === 'render' ? (
