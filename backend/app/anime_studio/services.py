@@ -24,6 +24,7 @@ from app.anime_studio.schemas import (
     AnimeAudioTrackUpdate,
     AnimeCaptionCreate,
     AnimeCaptionUpdate,
+    AnimeInteractiveCheckpoint,
     AnimeMediaGenerationCreate,
     AnimeMediaGenerationReview,
     AnimeProjectCreate,
@@ -49,6 +50,7 @@ from app.models.assets import (
     InstitutionalAssetStatus,
 )
 from app.models.comic import ComicPage, ComicPanel, GeneratedComic
+from app.models.delivery import AssignmentStatus, MaterialAssignment
 from app.models.education import Classroom, ClassroomEnrollment
 from app.models.operations import BackgroundJob
 from app.models.pedagogy import GenerationProject
@@ -1645,6 +1647,54 @@ async def publish_project(
             detail="Selecione somente turmas ativas da organização",
         )
 
+    raw_checkpoints = project.production_notes.get("interactive_checkpoints", [])
+    if not isinstance(raw_checkpoints, list):
+        raise HTTPException(status_code=422, detail="Checkpoints interativos inválidos")
+    try:
+        interactive_checkpoints = sorted(
+            [
+                AnimeInteractiveCheckpoint.model_validate(checkpoint)
+                for checkpoint in raw_checkpoints
+            ],
+            key=lambda checkpoint: checkpoint.timestamp_ms,
+        )
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Checkpoints interativos inválidos") from exc
+    checkpoint_ids = [checkpoint.id for checkpoint in interactive_checkpoints]
+    if len(set(checkpoint_ids)) != len(checkpoint_ids):
+        raise HTTPException(status_code=422, detail="Cada checkpoint deve ter um ID único")
+    render_duration_ms = render.duration_ms or sum(scene.duration_ms for scene in project.scenes)
+    if any(
+        checkpoint.timestamp_ms > render_duration_ms
+        for checkpoint in interactive_checkpoints
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Checkpoint fora da duração da versão aprovada",
+        )
+    assignment_ids = {
+        checkpoint.assignment_id for checkpoint in interactive_checkpoints
+    }
+    if assignment_ids:
+        valid_assignment_ids = set(
+            (
+                await session.scalars(
+                    select(MaterialAssignment.id).where(
+                        MaterialAssignment.id.in_(assignment_ids),
+                        MaterialAssignment.organization_id == actor.organization_id,
+                        MaterialAssignment.status.in_(
+                            {AssignmentStatus.SCHEDULED, AssignmentStatus.PUBLISHED}
+                        ),
+                    )
+                )
+            ).all()
+        )
+        if valid_assignment_ids != assignment_ids:
+            raise HTTPException(
+                status_code=422,
+                detail="Vincule somente atividades agendadas ou publicadas da organização",
+            )
+
     caption_languages = sorted(
         {cue.language for cue in project.captions}
         if data.include_captions
@@ -1710,6 +1760,7 @@ async def publish_project(
         includes_audio_description=has_audio_description,
         media_path=f"/anime-studio/publications/{project.id}/media",
         renditions=renditions,
+        interactive_checkpoints=interactive_checkpoints,
     )
     manifest = publication.model_dump(mode="json")
     project.production_notes = {**project.production_notes, "publication": manifest}
@@ -1736,6 +1787,7 @@ async def publish_project(
                     details={
                         "anime_render_id": str(render.id),
                         "classroom_ids": [str(item) for item in classroom_ids],
+                        "interactive_checkpoint_count": len(interactive_checkpoints),
                     },
                 )
             )
