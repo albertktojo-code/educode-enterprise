@@ -61,3 +61,9 @@ class CertificateRead(BaseModel):
     issued_at: datetime
     revoked_at: datetime | None
     revocation_reason: str
+
+
+class CertificateStudentRead(BaseModel):
+    id: UUID
+    full_name: str
+    email: str

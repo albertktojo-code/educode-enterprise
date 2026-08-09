@@ -66,6 +66,7 @@ import { SubjectsPage } from './pages/SubjectsPage'
 import { TeachingSequencesPage } from './pages/TeachingSequencesPage'
 import { TeacherCanvasPage } from './pages/TeacherCanvasPage'
 import { TeacherStudioPage } from './pages/TeacherStudioPage'
+import { TeacherCertificatesPage } from './pages/TeacherCertificatesPage'
 import { UsersPage } from './pages/UsersPage'
 import { AdvancedResourcesPage } from './pages/AdvancedResourcesPage'
 import { consolidatedFeatureRoutes } from './features/consolidation/routeRegistry'
@@ -120,6 +121,7 @@ export default function App() {
               <Route path="aluno/atividades" element={<StudentAssignmentsPage />} />
               <Route path="aluno/progresso" element={<StudentProgressPage />} />
               <Route path="aluno/portfolio" element={<StudentPortfolioPage />} />
+              <Route path="credentials/certificados" element={<TeacherCertificatesPage />} />
               <Route path="aluno/minha-trilha" element={<StudentLearningPathPage />} />
               <Route path="aluno/atividades/:assignmentId" element={<StudentAssignmentPage />} />
               <Route path="disciplinas" element={<SubjectsPage />} />
