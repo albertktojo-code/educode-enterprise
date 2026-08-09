@@ -9,6 +9,7 @@ import { AdaptivePathsPage } from './pages/AdaptivePathsPage'
 import { AdaptiveRecommendationsPage } from './pages/AdaptiveRecommendationsPage'
 import { AdaptiveStudentPage } from './pages/AdaptiveStudentPage'
 import { StudentLearningPathPage } from './pages/StudentLearningPathPage'
+import { StudentNotificationsPage } from './pages/StudentNotificationsPage'
 import { AdminAIPage } from './pages/AdminAIPage'
 import { AIFabricPage } from './pages/AIFabricPage'
 import { AIAdvancedPage } from './pages/AIAdvancedPage'
@@ -124,6 +125,7 @@ export default function App() {
               <Route path="aluno/atividades" element={<StudentAssignmentsPage />} />
               <Route path="aluno/progresso" element={<StudentProgressPage />} />
               <Route path="aluno/portfolio" element={<StudentPortfolioPage />} />
+              <Route path="aluno/notificacoes" element={<StudentNotificationsPage />} />
               <Route path="credentials/certificados" element={<TeacherCertificatesPage />} />
               <Route path="aluno/minha-trilha" element={<StudentLearningPathPage />} />
               <Route path="aluno/atividades/:assignmentId" element={<StudentAssignmentPage />} />

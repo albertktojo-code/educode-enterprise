@@ -55,14 +55,14 @@ from app.services.delivery import (
     answer_key_available,
     assignment_progress,
     create_assignment,
-    duplicate_assignment,
     create_learning_event,
     create_or_resume_attempt,
+    duplicate_assignment,
     effective_student_settings,
     get_assignment,
-    grant_extra_attempt,
     grade_response,
     grading_queue,
+    grant_extra_attempt,
     list_student_assignments,
     load_attempt,
     manual_grade_answer,
@@ -791,6 +791,31 @@ async def list_student_notifications(
         .limit(100)
     )
     return list(result.all())
+
+
+@router.patch("/student/notifications/read-all")
+async def mark_all_notifications_read(
+    session: AsyncSession = Depends(get_db_session),
+    membership: Membership = Depends(require_roles(*READ_ROLES)),
+    user: User = Depends(get_current_user),
+) -> dict[str, int]:
+    notifications = list(
+        (
+            await session.scalars(
+                select(UserNotification).where(
+                    UserNotification.organization_id == org_id(membership),
+                    UserNotification.user_id == user.id,
+                    UserNotification.status == NotificationStatus.UNREAD,
+                )
+            )
+        ).all()
+    )
+    read_at = datetime.now(UTC)
+    for notification in notifications:
+        notification.status = NotificationStatus.READ
+        notification.read_at = read_at
+    await session.commit()
+    return {"updated": len(notifications)}
 
 
 @router.patch("/student/notifications/{notification_id}/read", response_model=NotificationRead)

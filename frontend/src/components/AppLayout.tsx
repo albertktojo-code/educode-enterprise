@@ -211,6 +211,11 @@ const studentGroups: NavGroup[] = [
         icon: "↗",
       },
       {
+        to: "/aluno/notificacoes",
+        label: "Minhas notificações",
+        icon: "●",
+      },
+      {
         to: "/aluno/portfolio",
         label: "Meu portfólio",
         icon: "◆",
