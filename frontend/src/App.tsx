@@ -56,6 +56,7 @@ import { OrganizationPage } from './pages/OrganizationPage'
 import { PedagogicalStudioPage } from './pages/PedagogicalStudioPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ProductDirectoryPage } from './pages/ProductDirectoryPage'
+import { PublicCertificatePage } from './pages/PublicCertificatePage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { StudentAssignmentPage } from './pages/StudentAssignmentPage'
@@ -79,6 +80,8 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/credentials/verificar" element={<PublicCertificatePage />} />
+          <Route path="/credentials/verificar/:verificationCode" element={<PublicCertificatePage />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route index element={<DashboardPage />} />

@@ -1,6 +1,6 @@
 import type { TokenPair } from '../types/auth'
 
-const API_URL =
+export const API_URL =
   import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1'
 
 const ACCESS_TOKEN_KEY = 'educode_access_token'
