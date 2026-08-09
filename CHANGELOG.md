@@ -1,5 +1,21 @@
 # Changelog
 
+## Sprint 27.2B — 2026-08-09
+
+### Adicionado
+
+- solicitações tenant-scoped de rematrícula e transferência interna ou externa;
+- aprovação de rematrícula e transferência interna reutilizando matrícula, turma e vagas;
+- preservação do vínculo anterior como histórico em transferências;
+- módulo visual separado `/secretaria/movimentacoes`, migration reversível
+  `0062_enrollment_movements`, testes, instalador e manifesto.
+
+### Segurança
+
+- criação e análise restritas à equipe autorizada da Secretaria;
+- decisões e solicitações registradas na auditoria operacional;
+- migration aplicada somente depois de testes e validação em banco descartável.
+
 ## Sprint 27.2A — 2026-08-09
 
 ### Adicionado

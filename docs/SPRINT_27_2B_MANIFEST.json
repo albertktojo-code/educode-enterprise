@@ -1,0 +1,13 @@
+{
+  "sprint": "27.2B",
+  "name": "Enrollment Movements",
+  "base_revision": "0061_enrollment_contracts",
+  "target_revision": "0062_enrollment_movements",
+  "generated_at": "2026-08-09T16:35:00-03:00",
+  "checksum_algorithm": "SHA-256",
+  "checksum_file": "docs/SPRINT_27_2B_SHA256SUMS.txt",
+  "migration_after_tests": true,
+  "family_portal_request_included": false,
+  "documentation": "docs/SPRINT_27_2B_ENROLLMENT_MOVEMENTS.md",
+  "installation_report": "docs/SPRINT_27_2B_INSTALLATION_REPORT.md"
+}

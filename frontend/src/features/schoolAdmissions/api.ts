@@ -144,6 +144,54 @@ export interface EnrollmentContract {
   updated_at: string
 }
 
+export interface ActiveEnrollment {
+  id: string
+  student_profile_id: string
+  student_name: string
+  classroom_id: string
+  classroom_name: string
+  school_unit_id: string
+  school_unit_name: string
+  academic_year: number
+  status: string
+}
+
+export interface EnrollmentRenewal {
+  id: string
+  enrollment_id: string
+  student_name: string
+  source_classroom_name: string
+  target_classroom_id: string
+  target_classroom_name: string
+  target_academic_year: number
+  status: string
+  reason: string
+  review_note: string
+  result_application_id?: string | null
+  created_at: string
+}
+
+export interface EnrollmentTransfer {
+  id: string
+  enrollment_id: string
+  student_name: string
+  source_classroom_name: string
+  transfer_type: 'internal' | 'external'
+  destination_classroom_id?: string | null
+  destination_name: string
+  status: string
+  reason: string
+  review_note: string
+  result_application_id?: string | null
+  created_at: string
+}
+
+export interface EnrollmentMovementsDashboard {
+  enrollments: ActiveEnrollment[]
+  renewals: EnrollmentRenewal[]
+  transfers: EnrollmentTransfer[]
+}
+
 export const schoolAdmissionsApi = {
   dashboard: () => api.get<AdmissionsDashboard>('/school-admissions/dashboard'),
   units: () => api.get<SchoolUnit[]>('/school-admissions/units'),
@@ -214,4 +262,13 @@ export const schoolAdmissionsApi = {
     api.post<EnrollmentContract>(`/school-admissions/applications/${applicationId}/contract`, input),
   voidContract: (contractId: string, reason: string) =>
     api.post<EnrollmentContract>(`/school-admissions/contracts/${contractId}/void`, { reason }),
+  movements: () => api.get<EnrollmentMovementsDashboard>('/school-admissions/movements'),
+  createRenewal: (enrollmentId: string, input: { target_classroom_id: string; target_academic_year: number; reason: string }) =>
+    api.post<EnrollmentRenewal>(`/school-admissions/enrollments/${enrollmentId}/renewals`, input),
+  reviewRenewal: (requestId: string, decision: 'approved' | 'rejected', note = '') =>
+    api.post<EnrollmentRenewal>(`/school-admissions/renewals/${requestId}/review`, { decision, note }),
+  createTransfer: (enrollmentId: string, input: { transfer_type: 'internal' | 'external'; destination_classroom_id?: string | null; destination_name: string; reason: string }) =>
+    api.post<EnrollmentTransfer>(`/school-admissions/enrollments/${enrollmentId}/transfers`, input),
+  reviewTransfer: (requestId: string, decision: 'approved' | 'rejected', note = '') =>
+    api.post<EnrollmentTransfer>(`/school-admissions/transfers/${requestId}/review`, { decision, note }),
 }

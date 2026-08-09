@@ -44,6 +44,7 @@ export function SchoolSecretariatPage() {
     <div className="school-secretariat-module-grid">
       <Link to="/secretaria/matriculas"><strong>Matrículas</strong><span>Analise inscrições e aprove vínculos.</span></Link>
       <Link to="/secretaria/documentos"><strong>Documentos</strong><span>Configure checklist, versões e análise.</span></Link>
+      <Link to="/secretaria/movimentacoes"><strong>Movimentações</strong><span>Controle rematrículas e transferências.</span></Link>
       <Link to="/secretaria/turmas-vagas"><strong>Turmas e vagas</strong><span>Gerencie unidades, lotação e reservas.</span></Link>
     </div>
   </main>
