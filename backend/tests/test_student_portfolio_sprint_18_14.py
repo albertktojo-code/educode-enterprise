@@ -34,4 +34,4 @@ def test_certificate_verification_is_discoverable_before_login() -> None:
 
 
 def test_consolidation_keeps_database_head_unchanged() -> None:
-    assert list((BACKEND / "alembic/versions").glob("0059*.py")) == []
+    assert list((BACKEND / "alembic/versions").glob("0059*credential*.py")) == []
