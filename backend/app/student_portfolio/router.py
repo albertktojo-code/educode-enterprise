@@ -18,7 +18,7 @@ from app.anime_studio.models import AnimeProject
 from app.api.actor_context import ActorContext, get_project_session, resolve_actor_context
 from app.models.auth import Membership, Organization, OrganizationRole, User
 from app.models.comic import GeneratedComic
-from app.models.delivery import AttemptStatus, MaterialAssignment, StudentAttempt
+from app.models.delivery import AttemptStatus, MaterialAssignment, StudentAttempt, UserNotification
 from app.models.education import Project
 from app.services.consolidated_audit import append_domain_audit
 
@@ -265,6 +265,16 @@ async def issue_certificate(
         evidence_entry_ids=[str(item.id) for item in entries],
     )
     session.add(certificate)
+    session.add(
+        UserNotification(
+            organization_id=actor.organization_id,
+            user_id=data.student_user_id,
+            notification_type="certificate_issued",
+            title="Novo certificado emitido",
+            message=f"{certificate.title} foi adicionado ao seu portfólio.",
+            action_path="/aluno/portfolio",
+        )
+    )
     await session.flush()
     await append_domain_audit(
         session,
@@ -298,6 +308,19 @@ async def revoke_certificate(
         certificate.revoked_at = datetime.now(UTC)
         certificate.revoked_by_user_id = actor.user_id
         certificate.revocation_reason = data.reason.strip()
+        session.add(
+            UserNotification(
+                organization_id=actor.organization_id,
+                user_id=certificate.student_user_id,
+                notification_type="certificate_revoked",
+                title="Certificado revogado",
+                message=(
+                    f"{certificate.title} foi revogado. "
+                    f"Motivo: {certificate.revocation_reason}"
+                ),
+                action_path="/aluno/portfolio",
+            )
+        )
         await append_domain_audit(
             session,
             actor=actor,

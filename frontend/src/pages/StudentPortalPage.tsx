@@ -104,7 +104,7 @@ export function StudentPortalPage() {
           </section>
 
           <aside className="student-portal-panel student-portal-news">
-            <header><div><span>ATUALIZAÇÕES</span><h2>Notificações</h2></div></header>
+            <header><div><span>ATUALIZAÇÕES</span><h2>Notificações</h2></div><Link to="/aluno/notificacoes">Ver todas</Link></header>
             {state.notifications.length ? state.notifications.slice(0, 4).map((item) => <article key={item.id} className={item.status === 'unread' ? 'is-unread' : ''}><i aria-hidden="true" /><div><strong>{item.title}</strong><p>{item.message}</p></div></article>) : <p className="student-portal-empty">Nenhuma notificação no momento.</p>}
           </aside>
         </div>
