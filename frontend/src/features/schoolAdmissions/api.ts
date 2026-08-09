@@ -106,6 +106,44 @@ export interface EnrollmentDocumentChecklistItem {
   document?: EnrollmentDocument | null
 }
 
+export interface EnrollmentContractTemplate {
+  id: string
+  organization_id: string
+  school_unit_id?: string | null
+  code: string
+  name: string
+  body_template: string
+  is_active: boolean
+  created_at: string
+}
+
+export interface EnrollmentGuardianOption { id: string; full_name: string; email: string }
+
+export interface EnrollmentContractVersion {
+  id: string
+  version_number: number
+  rendered_content: string
+  variables_snapshot: Record<string, string>
+  content_sha256: string
+  created_at: string
+}
+
+export interface EnrollmentContract {
+  id: string
+  application_id: string
+  template_id: string
+  template_name: string
+  guardian_profile_id?: string | null
+  guardian_name?: string | null
+  status: string
+  current_version_number: number
+  void_reason: string
+  versions: EnrollmentContractVersion[]
+  acceptance?: { accepted_name: string; acceptance_hash: string; accepted_at: string } | null
+  created_at: string
+  updated_at: string
+}
+
 export const schoolAdmissionsApi = {
   dashboard: () => api.get<AdmissionsDashboard>('/school-admissions/dashboard'),
   units: () => api.get<SchoolUnit[]>('/school-admissions/units'),
@@ -161,4 +199,19 @@ export const schoolAdmissionsApi = {
     input: { decision: string; note: string; expires_at?: string | null },
   ) => api.post<EnrollmentDocument>(`/school-admissions/documents/${documentId}/review`, input),
   downloadDocument: (downloadPath: string) => apiBlob(downloadPath),
+  contractTemplates: () =>
+    api.get<EnrollmentContractTemplate[]>('/school-admissions/contract-templates'),
+  createContractTemplate: (input: {
+    school_unit_id?: string | null
+    code: string
+    name: string
+    body_template: string
+  }) => api.post<EnrollmentContractTemplate>('/school-admissions/contract-templates', input),
+  contracts: () => api.get<EnrollmentContract[]>('/school-admissions/contracts'),
+  applicationGuardians: (applicationId: string) =>
+    api.get<EnrollmentGuardianOption[]>(`/school-admissions/applications/${applicationId}/guardians`),
+  generateContract: (applicationId: string, input: { template_id: string; guardian_profile_id: string }) =>
+    api.post<EnrollmentContract>(`/school-admissions/applications/${applicationId}/contract`, input),
+  voidContract: (contractId: string, reason: string) =>
+    api.post<EnrollmentContract>(`/school-admissions/contracts/${contractId}/void`, { reason }),
 }

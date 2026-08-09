@@ -27,4 +27,4 @@ def test_certificate_contract_has_tenant_ownership_audit_and_rollback() -> None:
     assert 'down_revision: str | None = "0057_student_portfolio"' in migration
     assert 'op.drop_table("student_certificates")' in migration
     smoke = (BACKEND.parent / "scripts/smoke_test.py").read_text(encoding="utf-8")
-    assert 'version.get("migration_revision") == "0060_enrollment_documents"' in smoke
+    assert 'version.get("migration_revision") == "0061_enrollment_contracts"' in smoke

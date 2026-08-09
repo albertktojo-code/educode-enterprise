@@ -233,3 +233,73 @@ class EnrollmentDocumentReviewWrite(BaseModel):
         if self.decision == "expired" and self.expires_at is None:
             raise ValueError("informe a data de vencimento")
         return self
+
+
+class EnrollmentContractTemplateCreate(BaseModel):
+    school_unit_id: UUID | None = None
+    code: str = Field(min_length=2, max_length=60, pattern=r"^[a-z0-9_-]+$")
+    name: str = Field(min_length=2, max_length=160)
+    body_template: str = Field(min_length=20, max_length=50000)
+
+
+class EnrollmentContractTemplateRead(EnrollmentContractTemplateCreate):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    organization_id: UUID
+    is_active: bool
+    created_at: datetime
+
+
+class EnrollmentContractGenerate(BaseModel):
+    template_id: UUID
+    guardian_profile_id: UUID
+
+
+class EnrollmentContractVersionRead(BaseModel):
+    id: UUID
+    version_number: int
+    rendered_content: str
+    variables_snapshot: dict[str, str]
+    content_sha256: str
+    created_at: datetime
+
+
+class EnrollmentContractAcceptanceRead(BaseModel):
+    id: UUID
+    contract_version_id: UUID
+    guardian_profile_id: UUID
+    accepted_name: str
+    acceptance_hash: str
+    accepted_at: datetime
+
+
+class EnrollmentContractRead(BaseModel):
+    id: UUID
+    application_id: UUID
+    template_id: UUID
+    template_name: str
+    guardian_profile_id: UUID | None
+    guardian_name: str | None
+    status: str
+    current_version_number: int
+    void_reason: str
+    versions: list[EnrollmentContractVersionRead]
+    acceptance: EnrollmentContractAcceptanceRead | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class EnrollmentContractAccept(BaseModel):
+    confirmation: Literal["ACEITO"]
+    accepted_name: str = Field(min_length=2, max_length=180)
+
+
+class EnrollmentContractVoid(BaseModel):
+    reason: str = Field(min_length=5, max_length=2000)
+
+
+class EnrollmentGuardianOptionRead(BaseModel):
+    id: UUID
+    full_name: str
+    email: EmailStr

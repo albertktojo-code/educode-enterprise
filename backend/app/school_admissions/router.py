@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime
 from urllib.parse import quote
 from uuid import UUID
@@ -10,6 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.actor_context import ActorContext, resolve_actor_context
 from app.core.config import get_settings
 from app.db.session import get_db_session
+from app.school_admissions.contracts import (
+    contract_or_404,
+    contract_read,
+    contract_variables,
+    render_contract,
+    validate_template,
+)
 from app.school_admissions.document_storage import (
     InvalidEnrollmentDocumentError,
     save_enrollment_document,
@@ -17,13 +25,20 @@ from app.school_admissions.document_storage import (
 from app.school_admissions.models import (
     ApplicationStatus,
     ClassCapacity,
+    EnrollmentContract,
+    EnrollmentContractAcceptance,
+    EnrollmentContractStatus,
+    EnrollmentContractTemplate,
+    EnrollmentContractVersion,
     EnrollmentDocument,
     EnrollmentDocumentRequirement,
     EnrollmentDocumentReview,
     EnrollmentDocumentStatus,
     EnrollmentDocumentVersion,
+    GuardianProfile,
     SchoolUnit,
     StudentEnrollmentApplication,
+    StudentGuardianLink,
 )
 from app.school_admissions.policies import ensure_admissions_staff
 from app.school_admissions.schemas import (
@@ -33,11 +48,18 @@ from app.school_admissions.schemas import (
     EnrollmentApplicationCreate,
     EnrollmentApplicationRead,
     EnrollmentApprovalRead,
+    EnrollmentContractAccept,
+    EnrollmentContractGenerate,
+    EnrollmentContractRead,
+    EnrollmentContractTemplateCreate,
+    EnrollmentContractTemplateRead,
+    EnrollmentContractVoid,
     EnrollmentDocumentChecklistItem,
     EnrollmentDocumentRead,
     EnrollmentDocumentRequirementCreate,
     EnrollmentDocumentRequirementRead,
     EnrollmentDocumentReviewWrite,
+    EnrollmentGuardianOptionRead,
     SchoolUnitCreate,
     SchoolUnitRead,
     SeatDecisionRead,
@@ -59,6 +81,308 @@ from app.services.object_storage import ObjectStorageError, storage_from_setting
 from app.services.platform import append_audit_event
 
 router = APIRouter(prefix="/school-admissions", tags=["Secretaria e matrículas"])
+
+
+@router.get("/contract-templates", response_model=list[EnrollmentContractTemplateRead])
+async def list_contract_templates(
+    school_unit_id: UUID | None = None,
+    session: AsyncSession = Depends(get_db_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+) -> list[EnrollmentContractTemplate]:
+    await ensure_admissions_staff(session, actor, school_unit_id)
+    statement = select(EnrollmentContractTemplate).where(
+        EnrollmentContractTemplate.organization_id == actor.organization_id,
+        EnrollmentContractTemplate.is_active.is_(True),
+    )
+    if school_unit_id:
+        statement = statement.where(
+            or_(
+                EnrollmentContractTemplate.school_unit_id.is_(None),
+                EnrollmentContractTemplate.school_unit_id == school_unit_id,
+            )
+        )
+    return list((await session.scalars(statement.order_by(EnrollmentContractTemplate.name))).all())
+
+
+@router.post("/contract-templates", response_model=EnrollmentContractTemplateRead, status_code=201)
+async def create_contract_template(
+    data: EnrollmentContractTemplateCreate,
+    session: AsyncSession = Depends(get_db_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+) -> EnrollmentContractTemplate:
+    await ensure_admissions_staff(session, actor, data.school_unit_id)
+    validate_template(data.body_template)
+    if data.school_unit_id:
+        await school_unit_or_404(session, actor.organization_id, data.school_unit_id)
+    duplicate = await session.scalar(
+        select(EnrollmentContractTemplate.id).where(
+            EnrollmentContractTemplate.organization_id == actor.organization_id,
+            EnrollmentContractTemplate.school_unit_id == data.school_unit_id,
+            func.lower(EnrollmentContractTemplate.code) == data.code.casefold(),
+        )
+    )
+    if duplicate:
+        raise HTTPException(status_code=409, detail="Código de template já utilizado")
+    template = EnrollmentContractTemplate(
+        organization_id=actor.organization_id,
+        school_unit_id=data.school_unit_id,
+        code=data.code,
+        name=data.name.strip(),
+        body_template=data.body_template.strip(),
+        created_by_user_id=actor.user_id,
+    )
+    session.add(template)
+    await session.flush()
+    await append_audit_event(
+        session,
+        organization_id=actor.organization_id,
+        user_id=actor.user_id,
+        module_name="school_admissions",
+        action="enrollment_contract_template.created",
+        entity_type="enrollment_contract_template",
+        entity_id=template.id,
+        request_id=actor.request_id,
+        ip_address=actor.ip_address,
+        details={"code": template.code},
+    )
+    await session.commit()
+    await session.refresh(template)
+    return template
+
+
+@router.get("/contracts", response_model=list[EnrollmentContractRead])
+async def list_contracts(
+    session: AsyncSession = Depends(get_db_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+) -> list[EnrollmentContractRead]:
+    await ensure_admissions_staff(session, actor)
+    contracts = list(
+        (
+            await session.scalars(
+                select(EnrollmentContract)
+                .where(EnrollmentContract.organization_id == actor.organization_id)
+                .order_by(EnrollmentContract.updated_at.desc())
+            )
+        ).all()
+    )
+    return [await contract_read(session, item) for item in contracts]
+
+
+@router.get(
+    "/applications/{application_id}/guardians",
+    response_model=list[EnrollmentGuardianOptionRead],
+)
+async def list_application_guardians(
+    application_id: UUID,
+    session: AsyncSession = Depends(get_db_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+) -> list[GuardianProfile]:
+    application = await application_or_404(session, actor.organization_id, application_id)
+    await ensure_admissions_staff(session, actor, application.school_unit_id)
+    return list(
+        (
+            await session.scalars(
+                select(GuardianProfile)
+                .join(
+                    StudentGuardianLink,
+                    StudentGuardianLink.guardian_profile_id == GuardianProfile.id,
+                )
+                .where(
+                    GuardianProfile.organization_id == actor.organization_id,
+                    StudentGuardianLink.organization_id == actor.organization_id,
+                    StudentGuardianLink.student_profile_id == application.student_profile_id,
+                    GuardianProfile.is_active.is_(True),
+                )
+                .order_by(GuardianProfile.full_name)
+            )
+        ).all()
+    )
+
+
+@router.post("/applications/{application_id}/contract", response_model=EnrollmentContractRead)
+async def generate_enrollment_contract(
+    application_id: UUID,
+    data: EnrollmentContractGenerate,
+    session: AsyncSession = Depends(get_db_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+) -> EnrollmentContractRead:
+    application = await application_or_404(session, actor.organization_id, application_id)
+    await ensure_admissions_staff(session, actor, application.school_unit_id)
+    template = await session.scalar(
+        select(EnrollmentContractTemplate).where(
+            EnrollmentContractTemplate.id == data.template_id,
+            EnrollmentContractTemplate.organization_id == actor.organization_id,
+            EnrollmentContractTemplate.is_active.is_(True),
+            or_(
+                EnrollmentContractTemplate.school_unit_id.is_(None),
+                EnrollmentContractTemplate.school_unit_id == application.school_unit_id,
+            ),
+        )
+    )
+    if template is None:
+        raise HTTPException(status_code=404, detail="Template de contrato não encontrado")
+    guardian, variables = await contract_variables(session, application, data.guardian_profile_id)
+    variables["guardian_profile_id"] = str(guardian.id)
+    rendered, content_hash = render_contract(template.body_template, variables)
+    contract = await session.scalar(
+        select(EnrollmentContract)
+        .where(
+            EnrollmentContract.organization_id == actor.organization_id,
+            EnrollmentContract.application_id == application.id,
+        )
+        .with_for_update()
+    )
+    if contract and contract.status == EnrollmentContractStatus.ACCEPTED:
+        raise HTTPException(status_code=409, detail="Contrato aceito não pode ser regenerado")
+    if contract is None:
+        contract = EnrollmentContract(
+            organization_id=actor.organization_id,
+            application_id=application.id,
+            template_id=template.id,
+            generated_by_user_id=actor.user_id,
+            status=EnrollmentContractStatus.GENERATED,
+            current_version_number=1,
+        )
+        session.add(contract)
+        await session.flush()
+        version_number = 1
+    else:
+        contract.template_id = template.id
+        contract.status = EnrollmentContractStatus.GENERATED
+        contract.void_reason = ""
+        contract.voided_by_user_id = None
+        contract.current_version_number += 1
+        version_number = contract.current_version_number
+    session.add(
+        EnrollmentContractVersion(
+            organization_id=actor.organization_id,
+            contract_id=contract.id,
+            version_number=version_number,
+            template_snapshot=template.body_template,
+            rendered_content=rendered,
+            variables_snapshot=variables,
+            content_sha256=content_hash,
+            created_by_user_id=actor.user_id,
+        )
+    )
+    await append_audit_event(
+        session,
+        organization_id=actor.organization_id,
+        user_id=actor.user_id,
+        module_name="school_admissions",
+        action="enrollment_contract.generated",
+        entity_type="enrollment_contract",
+        entity_id=contract.id,
+        request_id=actor.request_id,
+        ip_address=actor.ip_address,
+        details={"application_id": str(application.id), "version": version_number},
+    )
+    await session.commit()
+    await session.refresh(contract)
+    return await contract_read(session, contract)
+
+
+@router.post("/contracts/{contract_id}/accept", response_model=EnrollmentContractRead)
+async def accept_enrollment_contract(
+    contract_id: UUID,
+    data: EnrollmentContractAccept,
+    session: AsyncSession = Depends(get_db_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+) -> EnrollmentContractRead:
+    contract = await contract_or_404(session, actor.organization_id, contract_id, lock=True)
+    if contract.status == EnrollmentContractStatus.ACCEPTED:
+        return await contract_read(session, contract)
+    if contract.status != EnrollmentContractStatus.GENERATED:
+        raise HTTPException(status_code=409, detail="Contrato não está disponível para aceite")
+    version = await session.scalar(
+        select(EnrollmentContractVersion).where(
+            EnrollmentContractVersion.organization_id == actor.organization_id,
+            EnrollmentContractVersion.contract_id == contract.id,
+            EnrollmentContractVersion.version_number == contract.current_version_number,
+        )
+    )
+    guardian_id = (
+        UUID(str(version.variables_snapshot.get("guardian_profile_id"))) if version else None
+    )
+    guardian = await session.scalar(
+        select(GuardianProfile).where(
+            GuardianProfile.id == guardian_id,
+            GuardianProfile.organization_id == actor.organization_id,
+            GuardianProfile.user_id == actor.user_id,
+            GuardianProfile.is_active.is_(True),
+        )
+    )
+    if guardian is None or data.accepted_name.strip().casefold() != guardian.full_name.casefold():
+        raise HTTPException(
+            status_code=403, detail="Aceite permitido apenas ao responsável identificado"
+        )
+    accepted_at = datetime.now(UTC)
+    acceptance_hash = hashlib.sha256(
+        f"{version.content_sha256}:{guardian.id}:{actor.user_id}:{accepted_at.isoformat()}".encode()
+    ).hexdigest()
+    session.add(
+        EnrollmentContractAcceptance(
+            organization_id=actor.organization_id,
+            contract_id=contract.id,
+            contract_version_id=version.id,
+            guardian_profile_id=guardian.id,
+            accepted_by_user_id=actor.user_id,
+            accepted_name=guardian.full_name,
+            acceptance_hash=acceptance_hash,
+            ip_address=actor.ip_address,
+            accepted_at=accepted_at,
+        )
+    )
+    contract.status = EnrollmentContractStatus.ACCEPTED
+    await append_audit_event(
+        session,
+        organization_id=actor.organization_id,
+        user_id=actor.user_id,
+        module_name="school_admissions",
+        action="enrollment_contract.accepted",
+        entity_type="enrollment_contract",
+        entity_id=contract.id,
+        request_id=actor.request_id,
+        ip_address=actor.ip_address,
+        details={"version": contract.current_version_number, "acceptance_hash": acceptance_hash},
+    )
+    await session.commit()
+    await session.refresh(contract)
+    return await contract_read(session, contract)
+
+
+@router.post("/contracts/{contract_id}/void", response_model=EnrollmentContractRead)
+async def void_enrollment_contract(
+    contract_id: UUID,
+    data: EnrollmentContractVoid,
+    session: AsyncSession = Depends(get_db_session),
+    actor: ActorContext = Depends(resolve_actor_context),
+) -> EnrollmentContractRead:
+    contract = await contract_or_404(session, actor.organization_id, contract_id, lock=True)
+    application = await application_or_404(session, actor.organization_id, contract.application_id)
+    await ensure_admissions_staff(session, actor, application.school_unit_id)
+    if contract.status == EnrollmentContractStatus.ACCEPTED:
+        raise HTTPException(
+            status_code=409, detail="Contrato aceito exige processo formal de cancelamento"
+        )
+    contract.status = EnrollmentContractStatus.VOIDED
+    contract.void_reason = data.reason.strip()
+    contract.voided_by_user_id = actor.user_id
+    await append_audit_event(
+        session,
+        organization_id=actor.organization_id,
+        user_id=actor.user_id,
+        module_name="school_admissions",
+        action="enrollment_contract.voided",
+        entity_type="enrollment_contract",
+        entity_id=contract.id,
+        request_id=actor.request_id,
+        ip_address=actor.ip_address,
+        details={"reason": contract.void_reason},
+    )
+    await session.commit()
+    await session.refresh(contract)
+    return await contract_read(session, contract)
 
 
 @router.get("/document-requirements", response_model=list[EnrollmentDocumentRequirementRead])

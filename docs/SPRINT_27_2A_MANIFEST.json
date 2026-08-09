@@ -1,0 +1,14 @@
+{
+  "sprint": "27.2A",
+  "name": "Enrollment Contracts",
+  "base_revision": "0060_enrollment_documents",
+  "target_revision": "0061_enrollment_contracts",
+  "generated_at": "2026-08-09T15:05:00-03:00",
+  "checksum_algorithm": "SHA-256",
+  "checksum_file": "docs/SPRINT_27_2A_SHA256SUMS.txt",
+  "migration_after_tests": true,
+  "external_signature_provider": false,
+  "school_finance_included": false,
+  "documentation": "docs/SPRINT_27_2A_ENROLLMENT_CONTRACTS.md",
+  "installation_report": "docs/SPRINT_27_2A_INSTALLATION_REPORT.md"
+}
