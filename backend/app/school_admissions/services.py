@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.actor_context import ActorContext
@@ -14,6 +14,10 @@ from app.models.education import Classroom, ClassroomEnrollment
 from app.school_admissions.models import (
     ApplicationStatus,
     ClassCapacity,
+    EnrollmentDocument,
+    EnrollmentDocumentRequirement,
+    EnrollmentDocumentReview,
+    EnrollmentDocumentVersion,
     EnrollmentStatus,
     EnrollmentWaitlist,
     GuardianProfile,
@@ -30,8 +34,133 @@ from app.school_admissions.schemas import (
     CapacitySnapshot,
     EnrollmentApplicationCreate,
     EnrollmentApplicationRead,
+    EnrollmentDocumentRead,
+    EnrollmentDocumentReviewRead,
+    EnrollmentDocumentVersionRead,
 )
 from app.services.platform import append_audit_event
+
+
+async def document_requirement_or_404(
+    session: AsyncSession,
+    organization_id: UUID,
+    requirement_id: UUID,
+    school_unit_id: UUID,
+) -> EnrollmentDocumentRequirement:
+    requirement = await session.scalar(
+        select(EnrollmentDocumentRequirement).where(
+            EnrollmentDocumentRequirement.id == requirement_id,
+            EnrollmentDocumentRequirement.organization_id == organization_id,
+            EnrollmentDocumentRequirement.is_active.is_(True),
+            or_(
+                EnrollmentDocumentRequirement.school_unit_id.is_(None),
+                EnrollmentDocumentRequirement.school_unit_id == school_unit_id,
+            ),
+        )
+    )
+    if requirement is None:
+        raise HTTPException(status_code=404, detail="Requisito documental não encontrado")
+    return requirement
+
+
+async def enrollment_document_or_404(
+    session: AsyncSession,
+    organization_id: UUID,
+    document_id: UUID,
+    *,
+    lock: bool = False,
+) -> tuple[EnrollmentDocument, StudentEnrollmentApplication]:
+    statement = select(EnrollmentDocument).where(
+        EnrollmentDocument.id == document_id,
+        EnrollmentDocument.organization_id == organization_id,
+    )
+    if lock:
+        statement = statement.with_for_update()
+    document = await session.scalar(statement)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Documento de matrícula não encontrado")
+    application = await application_or_404(session, organization_id, document.application_id)
+    return document, application
+
+
+async def enrollment_document_read(
+    session: AsyncSession,
+    document: EnrollmentDocument,
+) -> EnrollmentDocumentRead:
+    requirement = await session.scalar(
+        select(EnrollmentDocumentRequirement).where(
+            EnrollmentDocumentRequirement.id == document.requirement_id,
+            EnrollmentDocumentRequirement.organization_id == document.organization_id,
+        )
+    )
+    if requirement is None:
+        raise HTTPException(status_code=500, detail="Requisito documental inconsistente")
+    versions = list(
+        (
+            await session.scalars(
+                select(EnrollmentDocumentVersion)
+                .where(
+                    EnrollmentDocumentVersion.organization_id == document.organization_id,
+                    EnrollmentDocumentVersion.document_id == document.id,
+                )
+                .order_by(EnrollmentDocumentVersion.version_number.desc())
+            )
+        ).all()
+    )
+    reviews = list(
+        (
+            await session.scalars(
+                select(EnrollmentDocumentReview)
+                .where(
+                    EnrollmentDocumentReview.organization_id == document.organization_id,
+                    EnrollmentDocumentReview.document_id == document.id,
+                )
+                .order_by(EnrollmentDocumentReview.created_at.desc())
+            )
+        ).all()
+    )
+    return EnrollmentDocumentRead(
+        id=document.id,
+        application_id=document.application_id,
+        requirement_id=document.requirement_id,
+        requirement_code=requirement.code,
+        requirement_name=requirement.name,
+        status=document.status,
+        current_version_number=document.current_version_number,
+        reviewed_by_user_id=document.reviewed_by_user_id,
+        reviewed_at=document.reviewed_at,
+        review_note=document.review_note,
+        expires_at=document.expires_at,
+        versions=[
+            EnrollmentDocumentVersionRead(
+                id=item.id,
+                version_number=item.version_number,
+                original_filename=item.original_filename,
+                content_type=item.content_type,
+                size_bytes=item.size_bytes,
+                checksum_sha256=item.checksum_sha256,
+                uploaded_by_user_id=item.uploaded_by_user_id,
+                created_at=item.created_at,
+                download_path=(
+                    f"/school-admissions/documents/{document.id}/versions/{item.id}/download"
+                ),
+            )
+            for item in versions
+        ],
+        reviews=[
+            EnrollmentDocumentReviewRead(
+                id=item.id,
+                document_version_id=item.document_version_id,
+                decision=item.decision,
+                note=item.note,
+                reviewed_by_user_id=item.reviewed_by_user_id,
+                created_at=item.created_at,
+            )
+            for item in reviews
+        ],
+        created_at=document.created_at,
+        updated_at=document.updated_at,
+    )
 
 
 async def school_unit_or_404(
