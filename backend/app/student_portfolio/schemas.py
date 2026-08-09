@@ -27,3 +27,13 @@ class PortfolioEntryRead(BaseModel):
     completed_at_snapshot: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class PortfolioProductionRead(BaseModel):
+    id: UUID
+    kind: str
+    title: str
+    description: str
+    status: str
+    updated_at: datetime
+    route: str

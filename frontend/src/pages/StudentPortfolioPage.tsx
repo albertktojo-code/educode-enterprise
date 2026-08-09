@@ -19,6 +19,17 @@ interface PortfolioState {
   comics: ReaderRelease[]
   animes: AnimePublicationLibraryItem[]
   entries: PortfolioEntry[]
+  productions: PortfolioProduction[]
+}
+
+interface PortfolioProduction {
+  id: string
+  kind: 'project' | 'comic' | 'anime'
+  title: string
+  description: string
+  status: string
+  updated_at: string
+  route: string
 }
 
 interface PortfolioEntry {
@@ -39,6 +50,7 @@ const initialState: PortfolioState = {
   comics: [],
   animes: [],
   entries: [],
+  productions: [],
 }
 
 function percentage(value: number | null | undefined): string {
@@ -60,6 +72,7 @@ export function StudentPortfolioPage() {
       comicReaderApi.releases(),
       animeStudioApi.listPublications(),
       api<PortfolioEntry[]>('/student/portfolio/entries'),
+      api<PortfolioProduction[]>('/student/portfolio/productions'),
     ] as const
 
     void Promise.allSettled(requests).then((results) => {
@@ -77,6 +90,7 @@ export function StudentPortfolioPage() {
         comics: value(2, [], 'HQs'),
         animes: value(3, [], 'vídeos'),
         entries: value(4, [], 'curadoria'),
+        productions: value(5, [], 'produções autorais'),
       })
       setUnavailable(failed)
       setLoading(false)
@@ -193,6 +207,13 @@ export function StudentPortfolioPage() {
               </form>
             </article>)}
           </div> : <EmptyState icon="activity" title="Escolha suas melhores evidências" description="Use o botão nas atividades concluídas para começar sua curadoria e registrar o que aprendeu." />}
+        </section>
+
+        <section className="student-portfolio-panel student-portfolio-gallery">
+          <header><div><span>MINHAS PRODUÇÕES</span><h2>Projetos autorais no EduCode Studio</h2></div></header>
+          {state.productions.length ? <div>
+            {state.productions.map((production) => <Link to={production.route} key={`${production.kind}-${production.id}`}><span aria-hidden="true">{production.kind === 'anime' ? '▶' : production.kind === 'comic' ? '▤' : '◆'}</span><small>{production.kind}</small><strong>{production.title}</strong><p>{production.description}</p><small>{production.status.replaceAll('_', ' ')}</small></Link>)}
+          </div> : <EmptyState icon="folder" title="Nenhuma produção autoral ainda" description="Projetos, HQs e animes criados por você no EduCode aparecerão aqui sem copiar os arquivos de origem." />}
         </section>
 
         <div className="student-portfolio-columns">
