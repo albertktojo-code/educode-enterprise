@@ -7,12 +7,20 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.anime_studio.models import AnimeProject
 from app.api.actor_context import ActorContext, get_project_session, resolve_actor_context
+from app.models.comic import GeneratedComic
 from app.models.delivery import AttemptStatus, MaterialAssignment, StudentAttempt
+from app.models.education import Project
 from app.services.consolidated_audit import append_domain_audit
 
 from .models import StudentPortfolioEntry
-from .schemas import PortfolioEntryCreate, PortfolioEntryRead, PortfolioEntryUpdate
+from .schemas import (
+    PortfolioEntryCreate,
+    PortfolioEntryRead,
+    PortfolioEntryUpdate,
+    PortfolioProductionRead,
+)
 
 router = APIRouter(prefix="/student/portfolio", tags=["student-portfolio"])
 SessionDep = Annotated[AsyncSession, Depends(get_project_session)]
@@ -51,6 +59,80 @@ async def list_entries(session: SessionDep, actor: ActorDep) -> list[StudentPort
         .order_by(StudentPortfolioEntry.created_at.desc())
     )
     return list(entries.all())
+
+
+@router.get("/productions", response_model=list[PortfolioProductionRead])
+async def list_authored_productions(
+    session: SessionDep, actor: ActorDep
+) -> list[PortfolioProductionRead]:
+    require_student(actor)
+    projects = list(
+        (
+            await session.scalars(
+                select(Project).where(
+                    Project.organization_id == actor.organization_id,
+                    Project.owner_id == actor.user_id,
+                )
+            )
+        ).all()
+    )
+    comics = list(
+        (
+            await session.scalars(
+                select(GeneratedComic).where(
+                    GeneratedComic.organization_id == actor.organization_id,
+                    GeneratedComic.created_by_user_id == actor.user_id,
+                )
+            )
+        ).all()
+    )
+    animes = list(
+        (
+            await session.scalars(
+                select(AnimeProject).where(
+                    AnimeProject.organization_id == actor.organization_id,
+                    AnimeProject.created_by_user_id == actor.user_id,
+                )
+            )
+        ).all()
+    )
+    productions = [
+        PortfolioProductionRead(
+            id=item.id,
+            kind="project",
+            title=item.title,
+            description=item.description or "Projeto autoral",
+            status=item.status.value,
+            updated_at=item.updated_at,
+            route=f"/projetos/{item.id}",
+        )
+        for item in projects
+    ]
+    productions.extend(
+        PortfolioProductionRead(
+            id=item.id,
+            kind="comic",
+            title=item.title,
+            description=item.synopsis or "HQ autoral",
+            status=item.publication_status,
+            updated_at=item.updated_at,
+            route=f"/hqs/{item.id}",
+        )
+        for item in comics
+    )
+    productions.extend(
+        PortfolioProductionRead(
+            id=item.id,
+            kind="anime",
+            title=item.title,
+            description=item.synopsis or "Produção audiovisual autoral",
+            status=item.status,
+            updated_at=item.updated_at,
+            route=f"/anime-studio/{item.id}",
+        )
+        for item in animes
+    )
+    return sorted(productions, key=lambda item: item.updated_at, reverse=True)
 
 
 @router.post("/entries", response_model=PortfolioEntryRead, status_code=status.HTTP_201_CREATED)
