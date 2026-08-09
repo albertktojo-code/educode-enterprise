@@ -72,6 +72,18 @@ class EnrollmentContractStatus(StrEnum):
     VOIDED = "voided"
 
 
+class EnrollmentMovementStatus(StrEnum):
+    SUBMITTED = "submitted"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+
+
+class EnrollmentTransferType(StrEnum):
+    INTERNAL = "internal"
+    EXTERNAL = "external"
+
+
 class SchoolUnit(Base):
     __tablename__ = "school_units"
     __table_args__ = (
@@ -724,4 +736,100 @@ class EnrollmentContractAcceptance(Base):
     ip_address: Mapped[str] = mapped_column(String(64), default="", nullable=False)
     accepted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class EnrollmentRenewalRequest(Base):
+    __tablename__ = "enrollment_renewal_requests"
+    __table_args__ = (
+        UniqueConstraint(
+            "enrollment_id", "target_academic_year", name="uq_enrollment_renewal_year"
+        ),
+        CheckConstraint(
+            "status IN ('submitted', 'approved', 'rejected', 'cancelled')",
+            name="ck_enrollment_renewal_status",
+        ),
+        Index("ix_enrollment_renewals_org_status", "organization_id", "status", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    enrollment_id: Mapped[UUID] = mapped_column(
+        ForeignKey("student_enrollments.id", ondelete="RESTRICT"), nullable=False
+    )
+    target_classroom_id: Mapped[UUID] = mapped_column(
+        ForeignKey("classrooms.id", ondelete="RESTRICT"), nullable=False
+    )
+    target_academic_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default=EnrollmentMovementStatus.SUBMITTED)
+    reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    review_note: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    requested_by_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    reviewed_by_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    result_application_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("student_enrollment_applications.id", ondelete="SET NULL")
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class EnrollmentTransferRequest(Base):
+    __tablename__ = "enrollment_transfer_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "transfer_type IN ('internal', 'external')", name="ck_enrollment_transfer_type"
+        ),
+        CheckConstraint(
+            "status IN ('submitted', 'approved', 'rejected', 'cancelled')",
+            name="ck_enrollment_transfer_status",
+        ),
+        CheckConstraint(
+            "(transfer_type = 'internal' AND destination_classroom_id IS NOT NULL) OR "
+            "(transfer_type = 'external' AND destination_name <> '')",
+            name="ck_enrollment_transfer_destination",
+        ),
+        Index("ix_enrollment_transfers_org_status", "organization_id", "status", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    enrollment_id: Mapped[UUID] = mapped_column(
+        ForeignKey("student_enrollments.id", ondelete="RESTRICT"), nullable=False
+    )
+    transfer_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    destination_classroom_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("classrooms.id", ondelete="RESTRICT")
+    )
+    destination_name: Mapped[str] = mapped_column(String(180), default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default=EnrollmentMovementStatus.SUBMITTED)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    review_note: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    requested_by_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    reviewed_by_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    result_application_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("student_enrollment_applications.id", ondelete="SET NULL")
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )

@@ -48,6 +48,8 @@ EXPECTED_INCREMENTAL_PREFIXES = (
     "enrollment_waitlist",
     "enrollment_document_",
     "enrollment_contract_",
+    "enrollment_renewal_",
+    "enrollment_transfer_",
     "class_capacity",
     "institutional_staff_",
     "assessment_review_",

@@ -7,6 +7,7 @@ const modules = [
   { to: '/secretaria/matriculas', label: 'Matrículas' },
   { to: '/secretaria/documentos', label: 'Documentos' },
   { to: '/secretaria/contratos', label: 'Contratos' },
+  { to: '/secretaria/movimentacoes', label: 'Movimentações' },
   { to: '/secretaria/turmas-vagas', label: 'Turmas e vagas' },
 ]
 

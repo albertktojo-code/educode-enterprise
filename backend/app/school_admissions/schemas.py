@@ -303,3 +303,83 @@ class EnrollmentGuardianOptionRead(BaseModel):
     id: UUID
     full_name: str
     email: EmailStr
+
+
+class ActiveEnrollmentRead(BaseModel):
+    id: UUID
+    student_profile_id: UUID
+    student_name: str
+    classroom_id: UUID
+    classroom_name: str
+    school_unit_id: UUID
+    school_unit_name: str
+    academic_year: int
+    status: str
+
+
+class EnrollmentRenewalCreate(BaseModel):
+    target_classroom_id: UUID
+    target_academic_year: int = Field(ge=2020, le=2100)
+    reason: str = Field(default="", max_length=2000)
+
+
+class EnrollmentTransferCreate(BaseModel):
+    transfer_type: Literal["internal", "external"]
+    destination_classroom_id: UUID | None = None
+    destination_name: str = Field(default="", max_length=180)
+    reason: str = Field(min_length=3, max_length=2000)
+
+    @model_validator(mode="after")
+    def validate_destination(self) -> "EnrollmentTransferCreate":
+        if self.transfer_type == "internal" and self.destination_classroom_id is None:
+            raise ValueError("selecione a turma de destino")
+        if self.transfer_type == "external" and not self.destination_name.strip():
+            raise ValueError("informe a instituição de destino")
+        return self
+
+
+class EnrollmentMovementReview(BaseModel):
+    decision: Literal["approved", "rejected"]
+    note: str = Field(default="", max_length=2000)
+
+    @model_validator(mode="after")
+    def require_rejection_note(self) -> "EnrollmentMovementReview":
+        if self.decision == "rejected" and not self.note.strip():
+            raise ValueError("informe a justificativa da rejeição")
+        return self
+
+
+class EnrollmentRenewalRead(BaseModel):
+    id: UUID
+    enrollment_id: UUID
+    student_name: str
+    source_classroom_name: str
+    target_classroom_id: UUID
+    target_classroom_name: str
+    target_academic_year: int
+    status: str
+    reason: str
+    review_note: str
+    result_application_id: UUID | None
+    created_at: datetime
+
+
+class EnrollmentTransferRead(BaseModel):
+    id: UUID
+    enrollment_id: UUID
+    student_name: str
+    source_classroom_name: str
+    transfer_type: str
+    destination_classroom_id: UUID | None
+    destination_name: str
+    status: str
+    reason: str
+    review_note: str
+    result_application_id: UUID | None
+    created_at: datetime
+
+
+class EnrollmentMovementsDashboard(BaseModel):
+    enrollments: list[ActiveEnrollmentRead]
+    renewals: list[EnrollmentRenewalRead]
+    transfers: list[EnrollmentTransferRead]

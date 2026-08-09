@@ -61,7 +61,7 @@ def main() -> int:
             checks.append(
                 (
                     "platform_version",
-                    version.get("migration_revision") == "0061_enrollment_contracts",
+                    version.get("migration_revision") == "0062_enrollment_movements",
                     str(version),
                 )
             )

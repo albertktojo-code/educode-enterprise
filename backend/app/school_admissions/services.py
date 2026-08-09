@@ -528,7 +528,11 @@ async def reserve_or_waitlist(
 
 
 async def approve_application(
-    session: AsyncSession, actor: ActorContext, application: StudentEnrollmentApplication
+    session: AsyncSession,
+    actor: ActorContext,
+    application: StudentEnrollmentApplication,
+    *,
+    commit: bool = True,
 ) -> tuple[StudentEnrollment, bool]:
     existing = await session.scalar(
         select(StudentEnrollment).where(StudentEnrollment.application_id == application.id)
@@ -621,6 +625,7 @@ async def approve_application(
             "identity_pending": student.user_id is None,
         },
     )
-    await session.commit()
-    await session.refresh(enrollment)
+    if commit:
+        await session.commit()
+        await session.refresh(enrollment)
     return enrollment, classroom_participant_created
