@@ -426,6 +426,27 @@ class NotificationRead(BaseModel):
     created_at: datetime
     read_at: datetime | None
 
+
+class ClassroomAnnouncementCreate(BaseModel):
+    classroom_ids: list[UUID] = Field(min_length=1, max_length=50)
+    title: str = Field(min_length=3, max_length=240)
+    message: str = Field(min_length=3, max_length=2000)
+    action_path: str = Field(default="/aluno", min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_action_path(self) -> "ClassroomAnnouncementCreate":
+        if len(self.title.strip()) < 3 or len(self.message.strip()) < 3:
+            raise ValueError("título e mensagem devem conter conteúdo")
+        if not self.action_path.startswith("/") or self.action_path.startswith("//"):
+            raise ValueError("action_path deve ser uma rota interna")
+        return self
+
+
+class ClassroomAnnouncementResult(BaseModel):
+    classrooms: int
+    recipients: int
+
+
 class GrantExtraAttemptRequest(BaseModel):
     additional_attempts: int = Field(default=1, ge=1, le=10)
     due_at_override: datetime | None = None
