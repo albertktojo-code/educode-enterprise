@@ -31,11 +31,12 @@ def test_public_verification_and_qr_have_clear_contracts() -> None:
 def test_public_page_is_outside_protected_layout_and_supports_print() -> None:
     app = (FRONTEND / "App.tsx").read_text(encoding="utf-8")
     page = (FRONTEND / "pages/PublicCertificatePage.tsx").read_text(encoding="utf-8")
+    credentials_api = (FRONTEND / "features/credentials/api.ts").read_text(encoding="utf-8")
     css = (FRONTEND / "pages/publicCertificate.css").read_text(encoding="utf-8")
     public_route = app.index('path="/credentials/verificar/:verificationCode"')
     protected_route = app.index("<Route element={<ProtectedRoute />}")
     assert public_route < protected_route
-    assert "auth: false" in page
+    assert "auth: false" in credentials_api
     assert "window.print()" in page
     assert "student_user_id" not in page and "email" not in page
     assert "@media print" in css

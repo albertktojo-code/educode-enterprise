@@ -7,6 +7,8 @@ import { animeStudioApi } from '../features/animeStudio/api'
 import type { AnimePublicationLibraryItem } from '../features/animeStudio/types'
 import { comicReaderApi } from '../features/comicReaderAccess/api'
 import type { ReaderRelease } from '../features/comicReaderAccess/types'
+import { credentialsApi } from '../features/credentials/api'
+import type { PortfolioCertificate, PortfolioEvidence as PortfolioEntry } from '../features/credentials/types'
 import { api } from '../lib/api'
 import type { StudentOwnProgress } from '../types/analytics'
 import type { StudentAssignmentCard } from '../types/delivery'
@@ -23,8 +25,6 @@ interface PortfolioState {
   certificates: PortfolioCertificate[]
 }
 
-interface PortfolioCertificate { id: string; title: string; description: string; verification_code: string; status: string; issued_at: string; revoked_at: string | null; revocation_reason: string }
-
 interface PortfolioProduction {
   id: string
   kind: 'project' | 'comic' | 'anime'
@@ -33,18 +33,6 @@ interface PortfolioProduction {
   status: string
   updated_at: string
   route: string
-}
-
-interface PortfolioEntry {
-  id: string
-  assignment_id: string
-  attempt_id: string
-  title_snapshot: string
-  assignment_type_snapshot: string
-  percentage_snapshot: number
-  reflection: string
-  revision: number
-  completed_at_snapshot: string | null
 }
 
 const initialState: PortfolioState = {
@@ -77,7 +65,7 @@ export function StudentPortfolioPage() {
       animeStudioApi.listPublications(),
       api<PortfolioEntry[]>('/student/portfolio/entries'),
       api<PortfolioProduction[]>('/student/portfolio/productions'),
-      api<PortfolioCertificate[]>('/student/portfolio/certificates'),
+      credentialsApi.ownCertificates(),
     ] as const
 
     void Promise.allSettled(requests).then((results) => {

@@ -1,23 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import { API_URL, api } from '../lib/api'
+import { credentialsApi } from '../features/credentials/api'
+import type { PublicCertificate } from '../features/credentials/types'
 import './publicCertificate.css'
-
-interface PublicCertificateEvidence { title: string; assignment_type: string; percentage: number }
-interface PublicCertificate {
-  title: string
-  description: string
-  verification_code: string
-  status: string
-  issued_at: string
-  revoked_at: string | null
-  revocation_reason: string
-  student_name: string
-  issuer_name: string
-  organization_name: string
-  evidence: PublicCertificateEvidence[]
-}
 
 function date(value: string | null): string {
   return value
@@ -43,7 +29,7 @@ export function PublicCertificatePage() {
     let active = true
     setLoading(true)
     setError('')
-    void api.get<PublicCertificate>(`/student/portfolio/certificates/verify/${encodeURIComponent(normalizedCode)}`, { auth: false })
+    void credentialsApi.verify(normalizedCode)
       .then((value) => { if (active) setCertificate(value) })
       .catch((reason: unknown) => {
         if (!active) return
@@ -61,7 +47,7 @@ export function PublicCertificatePage() {
   }
 
   const qrUrl = certificate
-    ? `${API_URL}/student/portfolio/certificates/verify/${encodeURIComponent(certificate.verification_code)}/qr?origin=${encodeURIComponent(window.location.origin)}`
+    ? credentialsApi.qrUrl(certificate.verification_code, window.location.origin)
     : ''
 
   return (
