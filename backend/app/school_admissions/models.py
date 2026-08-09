@@ -66,6 +66,12 @@ class EnrollmentDocumentStatus(StrEnum):
     RESUBMISSION_REQUESTED = "resubmission_requested"
 
 
+class EnrollmentContractStatus(StrEnum):
+    GENERATED = "generated"
+    ACCEPTED = "accepted"
+    VOIDED = "voided"
+
+
 class SchoolUnit(Base):
     __tablename__ = "school_units"
     __table_args__ = (
@@ -574,5 +580,148 @@ class EnrollmentDocumentReview(Base):
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class EnrollmentContractTemplate(Base):
+    __tablename__ = "enrollment_contract_templates"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "school_unit_id",
+            "code",
+            name="uq_enrollment_contract_template_scope",
+            postgresql_nulls_not_distinct=True,
+        ),
+        Index("ix_enrollment_contract_templates_org_active", "organization_id", "is_active"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    school_unit_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("school_units.id", ondelete="CASCADE")
+    )
+    code: Mapped[str] = mapped_column(String(60), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    body_template: Mapped[str] = mapped_column(Text, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_by_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class EnrollmentContract(Base):
+    __tablename__ = "enrollment_contracts"
+    __table_args__ = (
+        UniqueConstraint("application_id", name="uq_enrollment_contract_application"),
+        CheckConstraint(
+            "status IN ('generated', 'accepted', 'voided')",
+            name="ck_enrollment_contract_status",
+        ),
+        CheckConstraint("current_version_number > 0", name="ck_enrollment_contract_version"),
+        Index("ix_enrollment_contracts_org_status", "organization_id", "status", "updated_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    application_id: Mapped[UUID] = mapped_column(
+        ForeignKey("student_enrollment_applications.id", ondelete="RESTRICT"), nullable=False
+    )
+    template_id: Mapped[UUID] = mapped_column(
+        ForeignKey("enrollment_contract_templates.id", ondelete="RESTRICT"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(20), default=EnrollmentContractStatus.GENERATED)
+    current_version_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    generated_by_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    voided_by_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    void_reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class EnrollmentContractVersion(Base):
+    __tablename__ = "enrollment_contract_versions"
+    __table_args__ = (
+        UniqueConstraint("contract_id", "version_number", name="uq_enrollment_contract_version"),
+        CheckConstraint("version_number > 0", name="ck_enrollment_contract_version_positive"),
+        Index(
+            "ix_enrollment_contract_versions_org_contract",
+            "organization_id",
+            "contract_id",
+            "version_number",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    contract_id: Mapped[UUID] = mapped_column(
+        ForeignKey("enrollment_contracts.id", ondelete="CASCADE"), nullable=False
+    )
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    template_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
+    rendered_content: Mapped[str] = mapped_column(Text, nullable=False)
+    variables_snapshot: Mapped[dict[str, str]] = mapped_column(JSONB, nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_by_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class EnrollmentContractAcceptance(Base):
+    __tablename__ = "enrollment_contract_acceptances"
+    __table_args__ = (
+        UniqueConstraint("contract_id", name="uq_enrollment_contract_acceptance"),
+        Index(
+            "ix_enrollment_contract_acceptances_org_guardian",
+            "organization_id",
+            "guardian_profile_id",
+            "accepted_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    contract_id: Mapped[UUID] = mapped_column(
+        ForeignKey("enrollment_contracts.id", ondelete="RESTRICT"), nullable=False
+    )
+    contract_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("enrollment_contract_versions.id", ondelete="RESTRICT"), nullable=False
+    )
+    guardian_profile_id: Mapped[UUID] = mapped_column(
+        ForeignKey("guardian_profiles.id", ondelete="RESTRICT"), nullable=False
+    )
+    accepted_by_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    accepted_name: Mapped[str] = mapped_column(String(180), nullable=False)
+    acceptance_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    ip_address: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    accepted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

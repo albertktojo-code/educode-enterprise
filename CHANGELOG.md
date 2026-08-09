@@ -1,5 +1,22 @@
 # Changelog
 
+## Sprint 27.2A — 2026-08-09
+
+### Adicionado
+
+- templates institucionais de contrato com variáveis controladas;
+- geração e regeneração em versões imutáveis com conteúdo e SHA-256;
+- aceite idempotente restrito ao responsável autenticado e vinculado ao estudante;
+- cancelamento administrativo de contratos ainda não aceitos;
+- módulo visual `/secretaria/contratos`, migration `0061_enrollment_contracts`, testes,
+  instalador, rollback e manifesto.
+
+### Segurança
+
+- contratos aceitos não podem ser regenerados nem cancelados diretamente;
+- aceite registra versão, responsável, usuário, timestamp, IP e hash sem expor dados civis;
+- integrações externas de assinatura e financeiro permanecem fora deste incremento.
+
 ## Sprint 27.1B — 2026-08-09
 
 ### Adicionado

@@ -57,6 +57,7 @@ import { SchoolSecretariatLayout } from './pages/SchoolSecretariatLayout'
 import { SchoolAdmissionsPage } from './pages/SchoolAdmissionsPage'
 import { SchoolDocumentsPage } from './pages/SchoolDocumentsPage'
 import { SchoolCapacityPage } from './pages/SchoolCapacityPage'
+import { SchoolContractsPage } from './pages/SchoolContractsPage'
 import { MockAiPage } from './pages/MockAiPage'
 import { OrganizationPage } from './pages/OrganizationPage'
 import { PedagogicalStudioPage } from './pages/PedagogicalStudioPage'
@@ -111,6 +112,7 @@ export default function App() {
                 <Route index element={<SchoolSecretariatPage />} />
                 <Route path="matriculas" element={<SchoolAdmissionsPage />} />
                 <Route path="documentos" element={<SchoolDocumentsPage />} />
+                <Route path="contratos" element={<SchoolContractsPage />} />
                 <Route path="turmas-vagas" element={<SchoolCapacityPage />} />
               </Route>
               <Route path="admin/operacao" element={<AdminOperationsPage />} />

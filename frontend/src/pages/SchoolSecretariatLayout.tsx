@@ -6,6 +6,7 @@ const modules = [
   { to: '/secretaria', label: 'Dashboard', end: true },
   { to: '/secretaria/matriculas', label: 'Matrículas' },
   { to: '/secretaria/documentos', label: 'Documentos' },
+  { to: '/secretaria/contratos', label: 'Contratos' },
   { to: '/secretaria/turmas-vagas', label: 'Turmas e vagas' },
 ]
 
