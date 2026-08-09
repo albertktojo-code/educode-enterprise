@@ -55,9 +55,15 @@ class Classroom(Base):
         index=True,
         nullable=True,
     )
+    school_unit_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("school_units.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     school_year: Mapped[int | None] = mapped_column(nullable=True)
     grade: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    shift: Mapped[str | None] = mapped_column(String(30), nullable=True)
     description: Mapped[str | None] = mapped_column(Text(), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

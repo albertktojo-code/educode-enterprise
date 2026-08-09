@@ -22,8 +22,10 @@ export interface Classroom {
   organization_id: string
   name: string
   subject_id?: string | null
+  school_unit_id?: string | null
   school_year?: number | null
   grade?: string | null
+  shift?: string | null
   description?: string | null
   is_active: boolean
   created_at: string

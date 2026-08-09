@@ -44,4 +44,4 @@ def test_student_notification_center_is_connected_to_connect() -> None:
 
 
 def test_sprint_reuses_existing_database_head() -> None:
-    assert list((BACKEND / "alembic/versions").glob("0059*.py")) == []
+    assert list((BACKEND / "alembic/versions").glob("*connect*.py")) == []

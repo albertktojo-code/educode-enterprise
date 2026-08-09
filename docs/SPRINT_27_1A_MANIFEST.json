@@ -1,0 +1,17 @@
+{
+  "sprint": "27.1A",
+  "name": "School Admissions Foundation",
+  "base_revision": "0058_student_certificates",
+  "target_revision": "0059_school_admissions",
+  "generated_at": "2026-08-09T12:20:00-03:00",
+  "checksum_algorithm": "SHA-256",
+  "checksum_file": "docs/SPRINT_27_1A_SHA256SUMS.txt",
+  "database_migration_required": true,
+  "migration_after_tests": true,
+  "feature_flags_default_enabled": false,
+  "sensitive_identity_documents_included": false,
+  "rollback": "documented-manual",
+  "installation_report_directory": "storage/sprint-reports",
+  "verified_installation_report": "docs/SPRINT_27_1A_INSTALLATION_REPORT.md",
+  "documentation": "docs/SPRINT_27_1A_SCHOOL_ADMISSIONS_FOUNDATION.md"
+}
