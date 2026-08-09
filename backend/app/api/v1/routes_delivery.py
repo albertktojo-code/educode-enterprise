@@ -21,6 +21,7 @@ from app.models.delivery import (
     StudentAttempt,
     UserNotification,
 )
+from app.models.education import Classroom, ClassroomEnrollment
 from app.schemas.delivery import (
     AnswerSaveRequest,
     AnswerSaveResponse,
@@ -36,6 +37,8 @@ from app.schemas.delivery import (
     AttemptStartRequest,
     AttemptSubmitRequest,
     AttemptWorkspace,
+    ClassroomAnnouncementCreate,
+    ClassroomAnnouncementResult,
     GradingQueueItem,
     GrantExtraAttemptRequest,
     LearningEventCreate,
@@ -75,6 +78,7 @@ from app.services.delivery import (
     student_material_snapshot,
     submit_attempt,
 )
+from app.services.platform import append_audit_event
 
 router = APIRouter(tags=["Publicação e aprendizagem"])
 
@@ -95,6 +99,82 @@ def delivery_http_error(exc: DeliveryError) -> HTTPException:
     message = str(exc)
     status = 409 if "desatualizado" in message.casefold() else 422
     return HTTPException(status_code=status, detail=message)
+
+
+@router.post(
+    "/connect/announcements",
+    response_model=ClassroomAnnouncementResult,
+    status_code=201,
+)
+async def create_classroom_announcement(
+    data: ClassroomAnnouncementCreate,
+    session: AsyncSession = Depends(get_db_session),
+    membership: Membership = Depends(require_roles(*TEACHER_ROLES)),
+    user: User = Depends(get_current_user),
+) -> ClassroomAnnouncementResult:
+    organization_id = org_id(membership)
+    classroom_ids = list(dict.fromkeys(data.classroom_ids))
+    valid_classrooms = set(
+        (
+            await session.scalars(
+                select(Classroom.id).where(
+                    Classroom.id.in_(classroom_ids),
+                    Classroom.organization_id == organization_id,
+                    Classroom.is_active.is_(True),
+                )
+            )
+        ).all()
+    )
+    if len(valid_classrooms) != len(classroom_ids):
+        raise HTTPException(status_code=422, detail="Uma ou mais turmas são inválidas.")
+
+    student_ids = list(
+        dict.fromkeys(
+            (
+                await session.scalars(
+                    select(ClassroomEnrollment.user_id)
+                    .join(Classroom, Classroom.id == ClassroomEnrollment.classroom_id)
+                    .join(User, User.id == ClassroomEnrollment.user_id)
+                    .join(Membership, Membership.user_id == User.id)
+                    .where(
+                        ClassroomEnrollment.classroom_id.in_(classroom_ids),
+                        ClassroomEnrollment.role == "student",
+                        Classroom.organization_id == organization_id,
+                        User.is_active.is_(True),
+                        Membership.organization_id == organization_id,
+                        Membership.role == OrganizationRole.MEMBER,
+                        Membership.is_active.is_(True),
+                    )
+                )
+            ).all()
+        )
+    )
+    for student_id in student_ids:
+        session.add(
+            UserNotification(
+                organization_id=organization_id,
+                user_id=student_id,
+                notification_type="classroom_announcement",
+                title=data.title.strip(),
+                message=data.message.strip(),
+                action_path=data.action_path,
+            )
+        )
+    await append_audit_event(
+        session,
+        organization_id=organization_id,
+        user_id=user.id,
+        module_name="connect",
+        action="announcement.sent",
+        entity_type="user_notification",
+        details={
+            "classroom_ids": [str(item) for item in classroom_ids],
+            "recipients": len(student_ids),
+            "title": data.title.strip(),
+        },
+    )
+    await session.commit()
+    return ClassroomAnnouncementResult(classrooms=len(classroom_ids), recipients=len(student_ids))
 
 
 async def assignment_or_404(
@@ -430,9 +510,7 @@ async def grant_student_attempt(
     return recipient
 
 
-@router.get(
-    "/delivery/assignments/{assignment_id}/progress", response_model=AssignmentProgress
-)
+@router.get("/delivery/assignments/{assignment_id}/progress", response_model=AssignmentProgress)
 async def read_assignment_progress(
     assignment_id: UUID,
     session: AsyncSession = Depends(get_db_session),
@@ -750,9 +828,7 @@ async def register_learning_event(
     if effective is None:
         raise HTTPException(status_code=403, detail="Atividade não atribuída ao estudante")
     if data.attempt_id is not None:
-        event_attempt = await load_attempt(
-            session, org_id(membership), data.attempt_id, user.id
-        )
+        event_attempt = await load_attempt(session, org_id(membership), data.attempt_id, user.id)
         if event_attempt is None or event_attempt.assignment_id != assignment.id:
             raise HTTPException(status_code=422, detail="Tentativa inválida para este evento")
     if data.question_id is not None and not any(

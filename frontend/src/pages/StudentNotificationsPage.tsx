@@ -7,10 +7,12 @@ import { studentNotificationsApi } from '../features/connect/notificationsApi'
 import type { NotificationItem } from '../types/delivery'
 import './studentNotifications.css'
 
-type NotificationFilter = 'all' | 'unread' | 'learning' | 'credentials'
+type NotificationFilter = 'all' | 'unread' | 'learning' | 'credentials' | 'communication'
 
-function category(item: NotificationItem): 'credentials' | 'learning' {
-  return item.notification_type.startsWith('certificate_') ? 'credentials' : 'learning'
+function category(item: NotificationItem): 'credentials' | 'learning' | 'communication' {
+  if (item.notification_type.startsWith('certificate_')) return 'credentials'
+  if (item.notification_type === 'classroom_announcement') return 'communication'
+  return 'learning'
 }
 
 export function StudentNotificationsPage() {
@@ -68,14 +70,14 @@ export function StudentNotificationsPage() {
     <section className="student-notifications" aria-busy={loading}>
       <header className="student-notifications-hero"><div><span>EDUCODE CONNECT</span><h1>Minhas notificações</h1><p>Acompanhe atividades, resultados e conquistas importantes da sua jornada.</p></div><div><strong>{unread}</strong><span>não lida(s)</span></div></header>
       <div className="student-notifications-toolbar">
-        <div role="group" aria-label="Filtrar notificações">{(['all', 'unread', 'learning', 'credentials'] as const).map((value) => <button type="button" key={value} className={filter === value ? 'active' : ''} aria-pressed={filter === value} onClick={() => setFilter(value)}>{value === 'all' ? 'Todas' : value === 'unread' ? 'Não lidas' : value === 'learning' ? 'Aprendizagem' : 'Certificados'}</button>)}</div>
+        <div role="group" aria-label="Filtrar notificações">{(['all', 'unread', 'learning', 'credentials', 'communication'] as const).map((value) => <button type="button" key={value} className={filter === value ? 'active' : ''} aria-pressed={filter === value} onClick={() => setFilter(value)}>{value === 'all' ? 'Todas' : value === 'unread' ? 'Não lidas' : value === 'learning' ? 'Aprendizagem' : value === 'credentials' ? 'Certificados' : 'Comunicados'}</button>)}</div>
         <button type="button" onClick={() => void markAllRead()} disabled={busy || unread === 0}>Marcar todas como lidas</button>
       </div>
       <p className="student-notifications-notice" aria-live="polite">{notice}</p>
       {loading ? <LoadingState label="Carregando notificações" rows={4} /> : null}
       {!loading && visible.length ? <div className="student-notifications-list">{visible.map((item) => <article key={item.id} className={item.status === 'unread' ? 'is-unread' : ''}>
-        <span className="student-notifications-icon" aria-hidden="true">{category(item) === 'credentials' ? '◆' : '●'}</span>
-        <div><small>{category(item) === 'credentials' ? 'CERTIFICADO' : 'APRENDIZAGEM'} · {new Date(item.created_at).toLocaleString('pt-BR')}</small><h2>{item.title}</h2><p>{item.message}</p><div>{item.action_path ? <Link to={item.action_path}>Abrir</Link> : null}{item.status === 'unread' ? <button type="button" disabled={busy} onClick={() => void markRead(item.id)}>Marcar como lida</button> : <span>Lida</span>}</div></div>
+        <span className="student-notifications-icon" aria-hidden="true">{category(item) === 'credentials' ? '◆' : category(item) === 'communication' ? '◉' : '●'}</span>
+        <div><small>{category(item) === 'credentials' ? 'CERTIFICADO' : category(item) === 'communication' ? 'COMUNICADO' : 'APRENDIZAGEM'} · {new Date(item.created_at).toLocaleString('pt-BR')}</small><h2>{item.title}</h2><p>{item.message}</p><div>{item.action_path ? <Link to={item.action_path}>Abrir</Link> : null}{item.status === 'unread' ? <button type="button" disabled={busy} onClick={() => void markRead(item.id)}>Marcar como lida</button> : <span>Lida</span>}</div></div>
       </article>)}</div> : null}
       {!loading && !visible.length ? <EmptyState icon="activity" title="Nenhuma notificação neste filtro" description="Novas atividades, resultados e certificados aparecerão aqui." /> : null}
     </section>
