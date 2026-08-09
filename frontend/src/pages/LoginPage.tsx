@@ -122,6 +122,9 @@ export function LoginPage() {
             A opção de permanência usa uma sessão revogável e não armazena sua
             senha no navegador.
           </small>
+          <Link className="login-certificate-link" to="/credentials/verificar">
+            Verificar um certificado EduCode
+          </Link>
         </form>
       </section>
     </main>

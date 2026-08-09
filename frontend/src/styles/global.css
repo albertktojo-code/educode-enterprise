@@ -5037,3 +5037,16 @@ body {
     padding: 3px;
   }
 }
+.login-certificate-link {
+  display: block;
+  margin-top: 0.75rem;
+  text-align: center;
+  color: #4338ca;
+  font-weight: 750;
+}
+
+.login-certificate-link:focus-visible {
+  outline: 3px solid #06b6d4;
+  outline-offset: 3px;
+  border-radius: 4px;
+}

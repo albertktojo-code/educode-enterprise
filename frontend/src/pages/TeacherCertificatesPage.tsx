@@ -2,12 +2,9 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 import { EmptyState } from '../components/EmptyState'
 import { LoadingState } from '../components/LoadingState'
-import { api } from '../lib/api'
+import { credentialsApi } from '../features/credentials/api'
+import type { CertificateStudent, PortfolioCertificate, PortfolioEvidence } from '../features/credentials/types'
 import './teacherCertificates.css'
-
-interface CertificateStudent { id: string; full_name: string; email: string }
-interface Evidence { id: string; title_snapshot: string; assignment_type_snapshot: string; percentage_snapshot: number; reflection: string; completed_at_snapshot: string | null }
-interface Certificate { id: string; title: string; description: string; verification_code: string; evidence_entry_ids: string[]; status: string; issued_at: string; revoked_at: string | null; revocation_reason: string }
 
 function formatDate(value: string | null): string {
   return value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(value)) : 'Data não informada'
@@ -16,8 +13,8 @@ function formatDate(value: string | null): string {
 export function TeacherCertificatesPage() {
   const [students, setStudents] = useState<CertificateStudent[]>([])
   const [studentId, setStudentId] = useState('')
-  const [evidence, setEvidence] = useState<Evidence[]>([])
-  const [certificates, setCertificates] = useState<Certificate[]>([])
+  const [evidence, setEvidence] = useState<PortfolioEvidence[]>([])
+  const [certificates, setCertificates] = useState<PortfolioCertificate[]>([])
   const [selectedEvidence, setSelectedEvidence] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingStudent, setLoadingStudent] = useState(false)
@@ -26,7 +23,7 @@ export function TeacherCertificatesPage() {
 
   useEffect(() => {
     let active = true
-    void api<CertificateStudent[]>('/student/portfolio/educator/students')
+    void credentialsApi.students()
       .then((items) => {
         if (!active) return
         setStudents(items)
@@ -50,8 +47,8 @@ export function TeacherCertificatesPage() {
     setSelectedEvidence([])
     setNotice('')
     void Promise.all([
-      api<Evidence[]>(`/student/portfolio/educator/students/${studentId}/entries`),
-      api<Certificate[]>(`/student/portfolio/educator/students/${studentId}/certificates`),
+      credentialsApi.evidence(studentId),
+      credentialsApi.certificates(studentId),
     ]).then(([entries, issued]) => {
       if (!active) return
       setEvidence(entries)
@@ -84,7 +81,7 @@ export function TeacherCertificatesPage() {
     setBusy(true)
     setNotice('')
     try {
-      const certificate = await api.post<Certificate>('/student/portfolio/certificates', {
+      const certificate = await credentialsApi.issue({
         student_user_id: studentId,
         title: String(values.get('title') ?? ''),
         description: String(values.get('description') ?? ''),
@@ -106,7 +103,7 @@ export function TeacherCertificatesPage() {
     setBusy(true)
     setNotice('')
     try {
-      const certificate = await api.post<Certificate>(`/student/portfolio/certificates/${certificateId}/revoke`, { reason })
+      const certificate = await credentialsApi.revoke(certificateId, reason)
       setCertificates((current) => current.map((item) => item.id === certificate.id ? certificate : item))
       form.reset()
       setNotice('Certificado revogado. O histórico e o motivo foram preservados.')
