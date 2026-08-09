@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from secrets import token_hex
 from typing import Annotated
 from uuid import UUID
 
@@ -14,8 +16,11 @@ from app.models.delivery import AttemptStatus, MaterialAssignment, StudentAttemp
 from app.models.education import Project
 from app.services.consolidated_audit import append_domain_audit
 
-from .models import StudentPortfolioEntry
+from .models import StudentCertificate, StudentPortfolioEntry
 from .schemas import (
+    CertificateIssue,
+    CertificateRead,
+    CertificateRevoke,
     PortfolioEntryCreate,
     PortfolioEntryRead,
     PortfolioEntryUpdate,
@@ -30,6 +35,102 @@ ActorDep = Annotated[ActorContext, Depends(resolve_actor_context)]
 def require_student(actor: ActorContext) -> None:
     if not actor.is_superuser and not actor.has_any_role("STUDENT", "LEARNER", "MEMBER"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Área exclusiva do estudante.")
+
+
+def require_educator(actor: ActorContext) -> None:
+    if not actor.is_superuser and not actor.has_any_role("TEACHER", "ADMIN", "OWNER"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Emissão exclusiva de educadores.")
+
+
+@router.get("/certificates", response_model=list[CertificateRead])
+async def list_certificates(session: SessionDep, actor: ActorDep) -> list[StudentCertificate]:
+    require_student(actor)
+    rows = await session.scalars(
+        select(StudentCertificate)
+        .where(
+            StudentCertificate.organization_id == actor.organization_id,
+            StudentCertificate.student_user_id == actor.user_id,
+        )
+        .order_by(StudentCertificate.issued_at.desc())
+    )
+    return list(rows.all())
+
+
+@router.post("/certificates", response_model=CertificateRead, status_code=201)
+async def issue_certificate(
+    data: CertificateIssue, session: SessionDep, actor: ActorDep
+) -> StudentCertificate:
+    require_educator(actor)
+    entries = list(
+        (
+            await session.scalars(
+                select(StudentPortfolioEntry).where(
+                    StudentPortfolioEntry.organization_id == actor.organization_id,
+                    StudentPortfolioEntry.student_user_id == data.student_user_id,
+                    StudentPortfolioEntry.id.in_(data.evidence_entry_ids),
+                )
+            )
+        ).all()
+    )
+    if len(entries) != len(set(data.evidence_entry_ids)):
+        raise HTTPException(
+            422, "Todas as evidências devem pertencer ao estudante e à organização."
+        )
+    certificate = StudentCertificate(
+        organization_id=actor.organization_id,
+        student_user_id=data.student_user_id,
+        issued_by_user_id=actor.user_id,
+        title=data.title.strip(),
+        description=data.description.strip(),
+        verification_code=token_hex(12).upper(),
+        evidence_entry_ids=[str(item.id) for item in entries],
+    )
+    session.add(certificate)
+    await session.flush()
+    await append_domain_audit(
+        session,
+        actor=actor,
+        module_name="student_portfolio",
+        action="certificate.issued",
+        entity_type="student_certificate",
+        entity_id=certificate.id,
+        details={"student_user_id": str(data.student_user_id), "evidence_count": len(entries)},
+    )
+    await session.commit()
+    await session.refresh(certificate)
+    return certificate
+
+
+@router.post("/certificates/{certificate_id}/revoke", response_model=CertificateRead)
+async def revoke_certificate(
+    certificate_id: UUID, data: CertificateRevoke, session: SessionDep, actor: ActorDep
+) -> StudentCertificate:
+    require_educator(actor)
+    certificate = await session.scalar(
+        select(StudentCertificate).where(
+            StudentCertificate.id == certificate_id,
+            StudentCertificate.organization_id == actor.organization_id,
+        )
+    )
+    if certificate is None:
+        raise HTTPException(404, "Certificado não encontrado.")
+    if certificate.status != "revoked":
+        certificate.status = "revoked"
+        certificate.revoked_at = datetime.now(UTC)
+        certificate.revoked_by_user_id = actor.user_id
+        certificate.revocation_reason = data.reason.strip()
+        await append_domain_audit(
+            session,
+            actor=actor,
+            module_name="student_portfolio",
+            action="certificate.revoked",
+            entity_type="student_certificate",
+            entity_id=certificate.id,
+            details={"reason": certificate.revocation_reason},
+        )
+        await session.commit()
+        await session.refresh(certificate)
+    return certificate
 
 
 async def own_entry_or_404(
