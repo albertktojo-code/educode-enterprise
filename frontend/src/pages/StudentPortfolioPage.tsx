@@ -260,7 +260,7 @@ export function StudentPortfolioPage() {
 
         <aside className="student-portfolio-scope">
           <strong>Sobre este portfólio</strong>
-          <p>As evidências selecionadas referenciam resultados oficiais do EduCode e não alteram a atividade original. Suas reflexões são privadas nesta versão. Certificados serão adicionados quando houver regras próprias de emissão e revogação.</p>
+          <p>As evidências selecionadas referenciam resultados oficiais do EduCode e não alteram a atividade original. Suas reflexões são privadas nesta versão. Certificados emitidos por educadores preservam as evidências vinculadas e o histórico de revogação.</p>
         </aside>
       </> : null}
     </section>

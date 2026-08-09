@@ -49,6 +49,7 @@ const teacherGroups: NavGroup[] = [
       { to: "/tarefas", label: "Tarefas e processamentos", icon: "◷" },
       { to: "/notificacoes", label: "Notificações", icon: "●" },
       { to: "/analytics", label: "Evolução dos alunos", icon: "↗" },
+      { to: "/credentials/certificados", label: "Certificados", icon: "◆" },
       { to: "/adaptativo", label: "Aprendizagem adaptativa", icon: "∞" },
       { to: "/estatistica", label: "Laboratório estatístico", icon: "▥" },
       { to: "/estatistica/avancado", label: "Pesquisa avançada", icon: "⌕" },

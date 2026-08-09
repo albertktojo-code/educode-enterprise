@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.anime_studio.models import AnimeProject
 from app.api.actor_context import ActorContext, get_project_session, resolve_actor_context
+from app.models.auth import Membership, OrganizationRole, User
 from app.models.comic import GeneratedComic
 from app.models.delivery import AttemptStatus, MaterialAssignment, StudentAttempt
 from app.models.education import Project
@@ -21,6 +22,7 @@ from .schemas import (
     CertificateIssue,
     CertificateRead,
     CertificateRevoke,
+    CertificateStudentRead,
     PortfolioEntryCreate,
     PortfolioEntryRead,
     PortfolioEntryUpdate,
@@ -40,6 +42,68 @@ def require_student(actor: ActorContext) -> None:
 def require_educator(actor: ActorContext) -> None:
     if not actor.is_superuser and not actor.has_any_role("TEACHER", "ADMIN", "OWNER"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Emissão exclusiva de educadores.")
+
+
+@router.get("/educator/students", response_model=list[CertificateStudentRead])
+async def list_certificate_students(
+    session: SessionDep, actor: ActorDep
+) -> list[CertificateStudentRead]:
+    require_educator(actor)
+    rows = (
+        await session.execute(
+            select(User.id, User.full_name, User.email)
+            .join(Membership, Membership.user_id == User.id)
+            .where(
+                Membership.organization_id == actor.organization_id,
+                Membership.role == OrganizationRole.MEMBER,
+                Membership.is_active.is_(True),
+                User.is_active.is_(True),
+            )
+            .order_by(User.full_name, User.email)
+        )
+    ).all()
+    return [
+        CertificateStudentRead(id=user_id, full_name=full_name, email=email)
+        for user_id, full_name, email in rows
+    ]
+
+
+@router.get(
+    "/educator/students/{student_user_id}/entries",
+    response_model=list[PortfolioEntryRead],
+)
+async def list_student_evidence(
+    student_user_id: UUID, session: SessionDep, actor: ActorDep
+) -> list[StudentPortfolioEntry]:
+    require_educator(actor)
+    entries = await session.scalars(
+        select(StudentPortfolioEntry)
+        .where(
+            StudentPortfolioEntry.organization_id == actor.organization_id,
+            StudentPortfolioEntry.student_user_id == student_user_id,
+        )
+        .order_by(StudentPortfolioEntry.created_at.desc())
+    )
+    return list(entries.all())
+
+
+@router.get(
+    "/educator/students/{student_user_id}/certificates",
+    response_model=list[CertificateRead],
+)
+async def list_student_certificates(
+    student_user_id: UUID, session: SessionDep, actor: ActorDep
+) -> list[StudentCertificate]:
+    require_educator(actor)
+    rows = await session.scalars(
+        select(StudentCertificate)
+        .where(
+            StudentCertificate.organization_id == actor.organization_id,
+            StudentCertificate.student_user_id == student_user_id,
+        )
+        .order_by(StudentCertificate.issued_at.desc())
+    )
+    return list(rows.all())
 
 
 @router.get("/certificates", response_model=list[CertificateRead])
