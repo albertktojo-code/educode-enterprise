@@ -67,3 +67,23 @@ class CertificateStudentRead(BaseModel):
     id: UUID
     full_name: str
     email: str
+
+
+class PublicCertificateEvidence(BaseModel):
+    title: str
+    assignment_type: str
+    percentage: float
+
+
+class PublicCertificateRead(BaseModel):
+    title: str
+    description: str
+    verification_code: str
+    status: str
+    issued_at: datetime
+    revoked_at: datetime | None
+    revocation_reason: str
+    student_name: str
+    issuer_name: str
+    organization_name: str
+    evidence: list[PublicCertificateEvidence]

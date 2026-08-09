@@ -224,7 +224,7 @@ export function StudentPortfolioPage() {
 
         <section className="student-portfolio-panel student-portfolio-gallery">
           <header><div><span>CERTIFICADOS</span><h2>Conquistas verificáveis</h2></div></header>
-          {state.certificates.length ? <div>{state.certificates.map((certificate) => <article key={certificate.id}><span aria-hidden="true">◆</span><small>{certificate.status === 'active' ? 'VÁLIDO' : 'REVOGADO'}</small><strong>{certificate.title}</strong><p>{certificate.description}</p><code>{certificate.verification_code}</code>{certificate.revocation_reason ? <small>{certificate.revocation_reason}</small> : null}</article>)}</div> : <EmptyState icon="activity" title="Nenhum certificado emitido" description="Certificados baseados em evidências aprovadas aparecerão aqui após emissão por um educador." />}
+          {state.certificates.length ? <div>{state.certificates.map((certificate) => <article key={certificate.id}><span aria-hidden="true">◆</span><small>{certificate.status === 'active' ? 'VÁLIDO' : 'REVOGADO'}</small><strong>{certificate.title}</strong><p>{certificate.description}</p><code>{certificate.verification_code}</code><Link to={`/credentials/verificar/${certificate.verification_code}`} target="_blank">Ver certificado</Link>{certificate.revocation_reason ? <small>{certificate.revocation_reason}</small> : null}</article>)}</div> : <EmptyState icon="activity" title="Nenhum certificado emitido" description="Certificados baseados em evidências aprovadas aparecerão aqui após emissão por um educador." />}
         </section>
 
         <div className="student-portfolio-columns">

@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from io import BytesIO
 from secrets import token_hex
 from typing import Annotated
+from urllib.parse import urlsplit
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+import qrcode
+import qrcode.image.svg
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.anime_studio.models import AnimeProject
 from app.api.actor_context import ActorContext, get_project_session, resolve_actor_context
-from app.models.auth import Membership, OrganizationRole, User
+from app.models.auth import Membership, Organization, OrganizationRole, User
 from app.models.comic import GeneratedComic
 from app.models.delivery import AttemptStatus, MaterialAssignment, StudentAttempt
 from app.models.education import Project
@@ -27,6 +32,8 @@ from .schemas import (
     PortfolioEntryRead,
     PortfolioEntryUpdate,
     PortfolioProductionRead,
+    PublicCertificateEvidence,
+    PublicCertificateRead,
 )
 
 router = APIRouter(prefix="/student/portfolio", tags=["student-portfolio"])
@@ -42,6 +49,114 @@ def require_student(actor: ActorContext) -> None:
 def require_educator(actor: ActorContext) -> None:
     if not actor.is_superuser and not actor.has_any_role("TEACHER", "ADMIN", "OWNER"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Emissão exclusiva de educadores.")
+
+
+@router.get(
+    "/certificates/verify/{verification_code}",
+    response_model=PublicCertificateRead,
+)
+async def verify_certificate(
+    verification_code: str, session: SessionDep
+) -> PublicCertificateRead:
+    student = aliased(User)
+    issuer = aliased(User)
+    row = (
+        await session.execute(
+            select(
+                StudentCertificate,
+                student.full_name,
+                issuer.full_name,
+                Organization.name,
+            )
+            .join(student, student.id == StudentCertificate.student_user_id)
+            .join(issuer, issuer.id == StudentCertificate.issued_by_user_id)
+            .join(Organization, Organization.id == StudentCertificate.organization_id)
+            .where(
+                StudentCertificate.verification_code
+                == verification_code.strip().upper()
+            )
+        )
+    ).one_or_none()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Certificado não encontrado.")
+
+    certificate, student_name, issuer_name, organization_name = row
+    try:
+        evidence_ids = [UUID(item) for item in certificate.evidence_entry_ids]
+    except ValueError:
+        evidence_ids = []
+    entries = list(
+        (
+            await session.scalars(
+                select(StudentPortfolioEntry).where(
+                    StudentPortfolioEntry.organization_id
+                    == certificate.organization_id,
+                    StudentPortfolioEntry.student_user_id
+                    == certificate.student_user_id,
+                    StudentPortfolioEntry.id.in_(evidence_ids),
+                )
+            )
+        ).all()
+    )
+    entries_by_id = {item.id: item for item in entries}
+    public_evidence = [
+        PublicCertificateEvidence(
+            title=entry.title_snapshot,
+            assignment_type=entry.assignment_type_snapshot,
+            percentage=entry.percentage_snapshot,
+        )
+        for entry_id in evidence_ids
+        if (entry := entries_by_id.get(entry_id)) is not None
+    ]
+    return PublicCertificateRead(
+        title=certificate.title,
+        description=certificate.description,
+        verification_code=certificate.verification_code,
+        status=certificate.status,
+        issued_at=certificate.issued_at,
+        revoked_at=certificate.revoked_at,
+        revocation_reason=certificate.revocation_reason,
+        student_name=student_name,
+        issuer_name=issuer_name,
+        organization_name=organization_name,
+        evidence=public_evidence,
+    )
+
+
+@router.get("/certificates/verify/{verification_code}/qr")
+async def certificate_qr_code(
+    verification_code: str,
+    session: SessionDep,
+    origin: str = Query(min_length=8, max_length=300),
+) -> Response:
+    normalized_code = verification_code.strip().upper()
+    certificate_id = await session.scalar(
+        select(StudentCertificate.id).where(
+            StudentCertificate.verification_code == normalized_code
+        )
+    )
+    if certificate_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Certificado não encontrado.")
+    parsed_origin = urlsplit(origin)
+    if (
+        parsed_origin.scheme not in {"http", "https"}
+        or not parsed_origin.netloc
+        or parsed_origin.username
+        or parsed_origin.password
+    ):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Origem inválida.")
+    public_url = (
+        f"{parsed_origin.scheme}://{parsed_origin.netloc}"
+        f"/credentials/verificar/{normalized_code}"
+    )
+    image = qrcode.make(public_url, image_factory=qrcode.image.svg.SvgPathImage)
+    output = BytesIO()
+    image.save(output)
+    return Response(
+        content=output.getvalue(),
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 @router.get("/educator/students", response_model=list[CertificateStudentRead])
