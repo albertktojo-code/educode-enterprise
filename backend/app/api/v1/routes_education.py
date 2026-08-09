@@ -35,6 +35,7 @@ from app.schemas.education import (
     SubjectRead,
     SubjectUpdate,
 )
+from app.school_admissions.models import SchoolUnit
 
 router = APIRouter(tags=["Núcleo educacional"])
 
@@ -86,6 +87,24 @@ async def get_classroom_in_organization(
     if classroom is None:
         raise HTTPException(status_code=404, detail="Turma não encontrada")
     return classroom
+
+
+async def validate_school_unit(
+    school_unit_id: UUID | None,
+    membership: Membership,
+    session: AsyncSession,
+) -> None:
+    if school_unit_id is None:
+        return
+    unit = await session.scalar(
+        select(SchoolUnit.id).where(
+            SchoolUnit.id == school_unit_id,
+            SchoolUnit.organization_id == organization_id(membership),
+            SchoolUnit.is_active.is_(True),
+        )
+    )
+    if unit is None:
+        raise HTTPException(status_code=404, detail="Unidade escolar não encontrada")
 
 
 async def get_project_in_organization(
@@ -308,6 +327,7 @@ async def create_classroom(
 ) -> Classroom:
     if data.subject_id is not None:
         await get_subject_in_organization(data.subject_id, membership, session)
+    await validate_school_unit(data.school_unit_id, membership, session)
     item = Classroom(
         organization_id=organization_id(membership),
         **data.model_dump(),
@@ -338,6 +358,8 @@ async def update_classroom(
     values = data.model_dump(exclude_unset=True)
     if "subject_id" in values and values["subject_id"] is not None:
         await get_subject_in_organization(values["subject_id"], membership, session)
+    if "school_unit_id" in values:
+        await validate_school_unit(values["school_unit_id"], membership, session)
     for field, value in values.items():
         setattr(classroom, field, value)
     await session.commit()

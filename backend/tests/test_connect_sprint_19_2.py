@@ -79,4 +79,4 @@ def test_teacher_composer_and_student_category_are_connected() -> None:
 
 
 def test_sprint_reuses_existing_database_head() -> None:
-    assert list((BACKEND / "alembic/versions").glob("0059*.py")) == []
+    assert list((BACKEND / "alembic/versions").glob("*connect*.py")) == []

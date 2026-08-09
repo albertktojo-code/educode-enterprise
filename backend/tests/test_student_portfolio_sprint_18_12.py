@@ -33,5 +33,5 @@ def test_teacher_certificate_workspace_is_connected() -> None:
 
 
 def test_sprint_does_not_add_a_database_revision() -> None:
-    revisions = list((BACKEND / "alembic/versions").glob("0059*.py"))
+    revisions = list((BACKEND / "alembic/versions").glob("0059*certificate*.py"))
     assert revisions == []

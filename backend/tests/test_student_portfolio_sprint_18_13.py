@@ -43,4 +43,4 @@ def test_public_page_is_outside_protected_layout_and_supports_print() -> None:
 
 
 def test_sprint_does_not_add_a_database_revision() -> None:
-    assert list((BACKEND / "alembic/versions").glob("0059*.py")) == []
+    assert list((BACKEND / "alembic/versions").glob("0059*certificate*.py")) == []

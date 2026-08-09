@@ -149,18 +149,46 @@ DEFAULT_FEATURE_FLAGS = [
     ("assessment.external_connectors", False, "Libera conectores QTI, LTI, xAPI e SCORM."),
     ("statistics.advanced", True, "Mantém o laboratório estatístico avançado disponível."),
     ("platform.pilot_mode", True, "Identifica a organização como ambiente piloto."),
+    ("SCHOOL_ADMISSIONS_ENABLED", False, "Libera matrículas e controle de vagas."),
+    ("SCHOOL_SECRETARIAT_ENABLED", False, "Libera a Secretaria Digital."),
+    ("SCHOOL_REPORT_CARDS_ENABLED", False, "Libera boletins escolares."),
+    ("SCHOOL_EVENTS_ENABLED", False, "Libera eventos e passeios escolares."),
+    ("SCHOOL_ANNOUNCEMENTS_ENABLED", False, "Libera comunicados institucionais."),
+    ("SCHOOL_FINANCE_ENABLED", False, "Libera o financeiro escolar separado."),
+    ("FAMILY_PORTAL_ENABLED", False, "Libera o Portal da Família."),
 ]
 
 DEFAULT_SLOS = [
-    ("backend_availability", "Disponibilidade do backend", "http.error_rate_percent", "<=", 0.5, 60),
+    (
+        "backend_availability",
+        "Disponibilidade do backend",
+        "http.error_rate_percent",
+        "<=",
+        0.5,
+        60,
+    ),
     ("http_latency_p95", "Latência HTTP p95", "http.latency_p95_ms", "<=", 500.0, 60),
     ("job_success_rate", "Taxa de falha das tarefas", "jobs.failure_rate_percent", "<=", 2.0, 1440),
     ("workers_available", "Workers ativos", "workers.active", ">=", 4.0, 15),
 ]
 
 DEFAULT_ALERT_RULES = [
-    ("http_errors_high", "Taxa elevada de erros HTTP", "http.error_rate_percent", ">", 2.0, "critical"),
-    ("http_latency_high", "Latência HTTP acima da meta", "http.latency_p95_ms", ">", 1000.0, "warning"),
+    (
+        "http_errors_high",
+        "Taxa elevada de erros HTTP",
+        "http.error_rate_percent",
+        ">",
+        2.0,
+        "critical",
+    ),
+    (
+        "http_latency_high",
+        "Latência HTTP acima da meta",
+        "http.latency_p95_ms",
+        ">",
+        1000.0,
+        "warning",
+    ),
     ("jobs_failed", "Falhas recentes de processamento", "jobs.failed_24h", ">", 3.0, "warning"),
     ("worker_shortage", "Workers insuficientes", "workers.active", "<", 4.0, "critical"),
     ("open_incidents", "Incidentes operacionais abertos", "incidents.open", ">", 0.0, "warning"),
@@ -190,9 +218,7 @@ async def ensure_bootstrap_principal(
 ) -> tuple[Organization, User]:
     """Create the initial principal without restoring revoked privileges."""
     organization = await session.scalar(
-        select(Organization).where(
-            Organization.slug == settings.initial_organization_slug
-        )
+        select(Organization).where(Organization.slug == settings.initial_organization_slug)
     )
     if organization is None:
         organization = Organization(
@@ -322,7 +348,6 @@ async def seed() -> None:
                 creative_item.status = CreativeStatus.ACTIVE
                 creative_item.visibility = CreativeVisibility.ORGANIZATION
 
-
         for flag_key, enabled, description in DEFAULT_FEATURE_FLAGS:
             flag = await session.scalar(
                 select(FeatureFlag).where(
@@ -365,63 +390,75 @@ async def seed() -> None:
                 )
 
         for slo_key, name, metric_name, comparator, target, window_minutes in DEFAULT_SLOS:
-            slo = await session.scalar(select(SLODefinition).where(
-                SLODefinition.organization_id == organization.id,
-                SLODefinition.slo_key == slo_key,
-            ))
+            slo = await session.scalar(
+                select(SLODefinition).where(
+                    SLODefinition.organization_id == organization.id,
+                    SLODefinition.slo_key == slo_key,
+                )
+            )
             if slo is None:
-                session.add(SLODefinition(
-                    organization_id=organization.id,
-                    slo_key=slo_key,
-                    name=name,
-                    description="Meta operacional padrão da Sprint 13.1.",
-                    metric_name=metric_name,
-                    comparator=comparator,
-                    target_value=target,
-                    window_minutes=window_minutes,
-                    minimum_samples=1,
-                    severity="critical" if "workers" in slo_key else "warning",
-                    created_by_user_id=user.id,
-                    updated_by_user_id=user.id,
-                ))
+                session.add(
+                    SLODefinition(
+                        organization_id=organization.id,
+                        slo_key=slo_key,
+                        name=name,
+                        description="Meta operacional padrão da Sprint 13.1.",
+                        metric_name=metric_name,
+                        comparator=comparator,
+                        target_value=target,
+                        window_minutes=window_minutes,
+                        minimum_samples=1,
+                        severity="critical" if "workers" in slo_key else "warning",
+                        created_by_user_id=user.id,
+                        updated_by_user_id=user.id,
+                    )
+                )
 
         for rule_key, name, metric_name, comparator, threshold, severity in DEFAULT_ALERT_RULES:
-            rule = await session.scalar(select(OperationalAlertRule).where(
-                OperationalAlertRule.organization_id == organization.id,
-                OperationalAlertRule.rule_key == rule_key,
-            ))
+            rule = await session.scalar(
+                select(OperationalAlertRule).where(
+                    OperationalAlertRule.organization_id == organization.id,
+                    OperationalAlertRule.rule_key == rule_key,
+                )
+            )
             if rule is None:
-                session.add(OperationalAlertRule(
-                    organization_id=organization.id,
-                    rule_key=rule_key,
-                    name=name,
-                    metric_name=metric_name,
-                    comparator=comparator,
-                    threshold_value=threshold,
-                    evaluation_window_minutes=5,
-                    severity=severity,
-                    cooldown_minutes=15,
-                    description="Regra operacional padrão da Sprint 13.1.",
-                    created_by_user_id=user.id,
-                    updated_by_user_id=user.id,
-                ))
+                session.add(
+                    OperationalAlertRule(
+                        organization_id=organization.id,
+                        rule_key=rule_key,
+                        name=name,
+                        metric_name=metric_name,
+                        comparator=comparator,
+                        threshold_value=threshold,
+                        evaluation_window_minutes=5,
+                        severity=severity,
+                        cooldown_minutes=15,
+                        description="Regra operacional padrão da Sprint 13.1.",
+                        created_by_user_id=user.id,
+                        updated_by_user_id=user.id,
+                    )
+                )
 
         for quota_key, limit_value, period, enforcement_mode in DEFAULT_QUOTAS:
-            quota = await session.scalar(select(OrganizationQuota).where(
-                OrganizationQuota.organization_id == organization.id,
-                OrganizationQuota.quota_key == quota_key,
-            ))
+            quota = await session.scalar(
+                select(OrganizationQuota).where(
+                    OrganizationQuota.organization_id == organization.id,
+                    OrganizationQuota.quota_key == quota_key,
+                )
+            )
             if quota is None:
-                session.add(OrganizationQuota(
-                    organization_id=organization.id,
-                    quota_key=quota_key,
-                    limit_value=limit_value,
-                    period=period,
-                    enforcement_mode=enforcement_mode,
-                    warning_percentage=80.0,
-                    critical_percentage=95.0,
-                    updated_by_user_id=user.id,
-                ))
+                session.add(
+                    OrganizationQuota(
+                        organization_id=organization.id,
+                        quota_key=quota_key,
+                        limit_value=limit_value,
+                        period=period,
+                        enforcement_mode=enforcement_mode,
+                        warning_percentage=80.0,
+                        critical_percentage=95.0,
+                        updated_by_user_id=user.id,
+                    )
+                )
 
         migration_revision = await session.scalar(
             text("SELECT version_num FROM alembic_version LIMIT 1")
@@ -443,9 +480,7 @@ async def seed() -> None:
                     environment=settings.environment,
                     migration_revision=str(migration_revision or "unknown"),
                     status="deployed",
-                    release_notes=(
-                        f"Deploy automatizado do build {settings.build_identifier}."
-                    ),
+                    release_notes=(f"Deploy automatizado do build {settings.build_identifier}."),
                     deployed_by_user_id=user.id,
                 )
             )

@@ -32,16 +32,20 @@ class SubjectRead(SubjectCreate):
 class ClassroomCreate(BaseModel):
     name: str = Field(min_length=2, max_length=160)
     subject_id: UUID | None = None
+    school_unit_id: UUID | None = None
     school_year: int | None = Field(default=None, ge=2020, le=2100)
     grade: str | None = Field(default=None, max_length=60)
+    shift: str | None = Field(default=None, max_length=30)
     description: str | None = None
 
 
 class ClassroomUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=160)
     subject_id: UUID | None = None
+    school_unit_id: UUID | None = None
     school_year: int | None = Field(default=None, ge=2020, le=2100)
     grade: str | None = Field(default=None, max_length=60)
+    shift: str | None = Field(default=None, max_length=30)
     description: str | None = None
     is_active: bool | None = None
 

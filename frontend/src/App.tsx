@@ -52,6 +52,7 @@ import { LoginPage } from './pages/LoginPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SecuritySessionsPage } from './pages/SecuritySessionsPage'
+import { SchoolSecretariatPage } from './pages/SchoolSecretariatPage'
 import { MockAiPage } from './pages/MockAiPage'
 import { OrganizationPage } from './pages/OrganizationPage'
 import { PedagogicalStudioPage } from './pages/PedagogicalStudioPage'
@@ -102,6 +103,7 @@ export default function App() {
               <Route path="tarefas" element={<JobsPage />} />
               <Route path="tarefas/:jobId" element={<JobDetailPage />} />
               <Route path="notificacoes" element={<NotificationsPage />} />
+              <Route path="secretaria" element={<SchoolSecretariatPage />} />
               <Route path="admin/operacao" element={<AdminOperationsPage />} />
               <Route path="admin/observabilidade" element={<AdminObservabilityPage />} />
               <Route path="admin/plataforma" element={<AdminPlatformPage />} />

@@ -26,6 +26,7 @@ from app.intervention_effectiveness import models as intervention_effectiveness_
 from app.intervention_orchestration import (
     __version__ as intervention_orchestration_version,  # noqa: F401
 )
+from app.school_admissions import models as school_admissions_models  # noqa: F401
 from app.student_portfolio import models as student_portfolio_models  # noqa: F401
 
 
@@ -40,6 +41,13 @@ EXPECTED_INCREMENTAL_PREFIXES = (
     "instrument_",
     "anime_",
     "student_portfolio_",
+    "school_",
+    "student_enrollment_",
+    "guardian_",
+    "seat_",
+    "enrollment_waitlist",
+    "class_capacity",
+    "institutional_staff_",
     "assessment_review_",
     "assessment_analytics_",
     "hq_",
