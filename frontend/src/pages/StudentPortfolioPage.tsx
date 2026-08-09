@@ -20,7 +20,10 @@ interface PortfolioState {
   animes: AnimePublicationLibraryItem[]
   entries: PortfolioEntry[]
   productions: PortfolioProduction[]
+  certificates: PortfolioCertificate[]
 }
+
+interface PortfolioCertificate { id: string; title: string; description: string; verification_code: string; status: string; issued_at: string; revoked_at: string | null; revocation_reason: string }
 
 interface PortfolioProduction {
   id: string
@@ -51,6 +54,7 @@ const initialState: PortfolioState = {
   animes: [],
   entries: [],
   productions: [],
+  certificates: [],
 }
 
 function percentage(value: number | null | undefined): string {
@@ -73,6 +77,7 @@ export function StudentPortfolioPage() {
       animeStudioApi.listPublications(),
       api<PortfolioEntry[]>('/student/portfolio/entries'),
       api<PortfolioProduction[]>('/student/portfolio/productions'),
+      api<PortfolioCertificate[]>('/student/portfolio/certificates'),
     ] as const
 
     void Promise.allSettled(requests).then((results) => {
@@ -91,6 +96,7 @@ export function StudentPortfolioPage() {
         animes: value(3, [], 'vídeos'),
         entries: value(4, [], 'curadoria'),
         productions: value(5, [], 'produções autorais'),
+        certificates: value(6, [], 'certificados'),
       })
       setUnavailable(failed)
       setLoading(false)
@@ -214,6 +220,11 @@ export function StudentPortfolioPage() {
           {state.productions.length ? <div>
             {state.productions.map((production) => <Link to={production.route} key={`${production.kind}-${production.id}`}><span aria-hidden="true">{production.kind === 'anime' ? '▶' : production.kind === 'comic' ? '▤' : '◆'}</span><small>{production.kind}</small><strong>{production.title}</strong><p>{production.description}</p><small>{production.status.replaceAll('_', ' ')}</small></Link>)}
           </div> : <EmptyState icon="folder" title="Nenhuma produção autoral ainda" description="Projetos, HQs e animes criados por você no EduCode aparecerão aqui sem copiar os arquivos de origem." />}
+        </section>
+
+        <section className="student-portfolio-panel student-portfolio-gallery">
+          <header><div><span>CERTIFICADOS</span><h2>Conquistas verificáveis</h2></div></header>
+          {state.certificates.length ? <div>{state.certificates.map((certificate) => <article key={certificate.id}><span aria-hidden="true">◆</span><small>{certificate.status === 'active' ? 'VÁLIDO' : 'REVOGADO'}</small><strong>{certificate.title}</strong><p>{certificate.description}</p><code>{certificate.verification_code}</code>{certificate.revocation_reason ? <small>{certificate.revocation_reason}</small> : null}</article>)}</div> : <EmptyState icon="activity" title="Nenhum certificado emitido" description="Certificados baseados em evidências aprovadas aparecerão aqui após emissão por um educador." />}
         </section>
 
         <div className="student-portfolio-columns">

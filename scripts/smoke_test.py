@@ -61,7 +61,7 @@ def main() -> int:
             checks.append(
                 (
                     "platform_version",
-                    version.get("migration_revision") == "0057_student_portfolio",
+                    version.get("migration_revision") == "0058_student_certificates",
                     str(version),
                 )
             )

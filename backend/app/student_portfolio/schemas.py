@@ -37,3 +37,27 @@ class PortfolioProductionRead(BaseModel):
     status: str
     updated_at: datetime
     route: str
+
+
+class CertificateIssue(BaseModel):
+    student_user_id: UUID
+    title: str = Field(min_length=3, max_length=240)
+    description: str = Field(default="", max_length=2000)
+    evidence_entry_ids: list[UUID] = Field(min_length=1, max_length=50)
+
+
+class CertificateRevoke(BaseModel):
+    reason: str = Field(min_length=3, max_length=300)
+
+
+class CertificateRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    title: str
+    description: str
+    verification_code: str
+    evidence_entry_ids: list[str]
+    status: str
+    issued_at: datetime
+    revoked_at: datetime | None
+    revocation_reason: str
