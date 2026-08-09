@@ -1,5 +1,26 @@
 # Changelog
 
+## Sprint 27.1B — 2026-08-09
+
+### Adicionado
+
+- checklist institucional de documentos de matrícula por organização e unidade;
+- upload privado de PDF, JPEG e PNG com validação de assinatura, tamanho e SHA-256;
+- histórico imutável de versões, revisão administrativa e download autenticado;
+- migration reversível `0060_enrollment_documents` e teste integrado em PostgreSQL;
+- manifesto, instalador seguro, relatório e documentação operacional da sprint.
+
+### Alterado
+
+- Secretaria Digital separada visualmente em painel, matrículas, documentos e turmas/vagas;
+- smoke test atualizado para o head `0060_enrollment_documents`.
+
+### Segurança
+
+- chaves de armazenamento nunca são expostas pela API e downloads usam `no-store`;
+- envio pelo responsável permanece adiado para o Portal da Família; nesta sprint o acesso é
+  restrito à equipe institucional autorizada.
+
 ## Sprint 27.1A — 2026-08-09
 
 ### Adicionado

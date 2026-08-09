@@ -53,6 +53,10 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SecuritySessionsPage } from './pages/SecuritySessionsPage'
 import { SchoolSecretariatPage } from './pages/SchoolSecretariatPage'
+import { SchoolSecretariatLayout } from './pages/SchoolSecretariatLayout'
+import { SchoolAdmissionsPage } from './pages/SchoolAdmissionsPage'
+import { SchoolDocumentsPage } from './pages/SchoolDocumentsPage'
+import { SchoolCapacityPage } from './pages/SchoolCapacityPage'
 import { MockAiPage } from './pages/MockAiPage'
 import { OrganizationPage } from './pages/OrganizationPage'
 import { PedagogicalStudioPage } from './pages/PedagogicalStudioPage'
@@ -103,7 +107,12 @@ export default function App() {
               <Route path="tarefas" element={<JobsPage />} />
               <Route path="tarefas/:jobId" element={<JobDetailPage />} />
               <Route path="notificacoes" element={<NotificationsPage />} />
-              <Route path="secretaria" element={<SchoolSecretariatPage />} />
+              <Route path="secretaria" element={<SchoolSecretariatLayout />}>
+                <Route index element={<SchoolSecretariatPage />} />
+                <Route path="matriculas" element={<SchoolAdmissionsPage />} />
+                <Route path="documentos" element={<SchoolDocumentsPage />} />
+                <Route path="turmas-vagas" element={<SchoolCapacityPage />} />
+              </Route>
               <Route path="admin/operacao" element={<AdminOperationsPage />} />
               <Route path="admin/observabilidade" element={<AdminObservabilityPage />} />
               <Route path="admin/plataforma" element={<AdminPlatformPage />} />

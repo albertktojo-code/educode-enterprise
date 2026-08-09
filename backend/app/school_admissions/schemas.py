@@ -132,3 +132,104 @@ class AdmissionsDashboard(BaseModel):
     under_review: int
     waitlisted: int
     approved: int
+
+
+DocumentReviewDecision = Literal[
+    "under_review",
+    "approved",
+    "rejected",
+    "illegible",
+    "expired",
+    "resubmission_requested",
+]
+
+
+class EnrollmentDocumentRequirementCreate(BaseModel):
+    school_unit_id: UUID | None = None
+    code: str = Field(min_length=2, max_length=60, pattern=r"^[a-z0-9_-]+$")
+    name: str = Field(min_length=2, max_length=160)
+    description: str = Field(default="", max_length=1000)
+    is_required: bool = True
+    accepted_mime_types: list[Literal["application/pdf", "image/jpeg", "image/png"]] = Field(
+        default_factory=lambda: ["application/pdf", "image/jpeg", "image/png"],
+        min_length=1,
+        max_length=3,
+    )
+    max_size_bytes: int = Field(default=10 * 1024 * 1024, ge=1024, le=25 * 1024 * 1024)
+    retention_days: int = Field(default=1825, ge=30, le=36500)
+
+    @model_validator(mode="after")
+    def unique_mime_types(self) -> "EnrollmentDocumentRequirementCreate":
+        if len(self.accepted_mime_types) != len(set(self.accepted_mime_types)):
+            raise ValueError("tipos de arquivo não podem ser repetidos")
+        return self
+
+
+class EnrollmentDocumentRequirementRead(EnrollmentDocumentRequirementCreate):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    organization_id: UUID
+    is_active: bool
+    created_at: datetime
+
+
+class EnrollmentDocumentVersionRead(BaseModel):
+    id: UUID
+    version_number: int
+    original_filename: str
+    content_type: str
+    size_bytes: int
+    checksum_sha256: str
+    uploaded_by_user_id: UUID
+    created_at: datetime
+    download_path: str
+
+
+class EnrollmentDocumentReviewRead(BaseModel):
+    id: UUID
+    document_version_id: UUID
+    decision: str
+    note: str
+    reviewed_by_user_id: UUID
+    created_at: datetime
+
+
+class EnrollmentDocumentRead(BaseModel):
+    id: UUID
+    application_id: UUID
+    requirement_id: UUID
+    requirement_code: str
+    requirement_name: str
+    status: str
+    current_version_number: int
+    reviewed_by_user_id: UUID | None
+    reviewed_at: datetime | None
+    review_note: str
+    expires_at: datetime | None
+    versions: list[EnrollmentDocumentVersionRead]
+    reviews: list[EnrollmentDocumentReviewRead]
+    created_at: datetime
+    updated_at: datetime
+
+
+class EnrollmentDocumentChecklistItem(BaseModel):
+    requirement: EnrollmentDocumentRequirementRead
+    document: EnrollmentDocumentRead | None
+
+
+class EnrollmentDocumentReviewWrite(BaseModel):
+    decision: DocumentReviewDecision
+    note: str = Field(default="", max_length=2000)
+    expires_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def require_review_note(self) -> "EnrollmentDocumentReviewWrite":
+        if (
+            self.decision in {"rejected", "illegible", "resubmission_requested"}
+            and not self.note.strip()
+        ):
+            raise ValueError("informe a justificativa da decisão")
+        if self.decision == "expired" and self.expires_at is None:
+            raise ValueError("informe a data de vencimento")
+        return self

@@ -71,4 +71,4 @@ def test_frontend_exposes_curate_reflect_and_remove_actions() -> None:
 
 def test_smoke_test_tracks_current_credentials_migration_head() -> None:
     smoke = (WORKSPACE_ROOT / "scripts/smoke_test.py").read_text(encoding="utf-8")
-    assert 'version.get("migration_revision") == "0059_school_admissions"' in smoke
+    assert 'version.get("migration_revision") == "0060_enrollment_documents"' in smoke

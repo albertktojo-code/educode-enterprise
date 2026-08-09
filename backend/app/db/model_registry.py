@@ -46,6 +46,7 @@ EXPECTED_INCREMENTAL_PREFIXES = (
     "guardian_",
     "seat_",
     "enrollment_waitlist",
+    "enrollment_document_",
     "class_capacity",
     "institutional_staff_",
     "assessment_review_",

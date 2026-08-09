@@ -55,6 +55,17 @@ class WaitlistStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class EnrollmentDocumentStatus(StrEnum):
+    MISSING = "missing"
+    SUBMITTED = "submitted"
+    UNDER_REVIEW = "under_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    ILLEGIBLE = "illegible"
+    EXPIRED = "expired"
+    RESUBMISSION_REQUESTED = "resubmission_requested"
+
+
 class SchoolUnit(Base):
     __tablename__ = "school_units"
     __table_args__ = (
@@ -399,4 +410,169 @@ class EnrollmentWaitlist(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class EnrollmentDocumentRequirement(Base):
+    __tablename__ = "enrollment_document_requirements"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "school_unit_id",
+            "code",
+            name="uq_enrollment_document_requirement_scope",
+            postgresql_nulls_not_distinct=True,
+        ),
+        CheckConstraint("max_size_bytes > 0", name="ck_enrollment_requirement_size"),
+        CheckConstraint("retention_days > 0", name="ck_enrollment_requirement_retention"),
+        Index(
+            "ix_enrollment_document_requirements_org_active",
+            "organization_id",
+            "is_active",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    school_unit_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("school_units.id", ondelete="CASCADE")
+    )
+    code: Mapped[str] = mapped_column(String(60), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    is_required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    accepted_mime_types: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    max_size_bytes: Mapped[int] = mapped_column(Integer, default=10 * 1024 * 1024, nullable=False)
+    retention_days: Mapped[int] = mapped_column(Integer, default=1825, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_by_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class EnrollmentDocument(Base):
+    __tablename__ = "enrollment_documents"
+    __table_args__ = (
+        UniqueConstraint(
+            "application_id", "requirement_id", name="uq_enrollment_document_application_slot"
+        ),
+        CheckConstraint(
+            "status IN ('submitted', 'under_review', 'approved', 'rejected', "
+            "'illegible', 'expired', 'resubmission_requested')",
+            name="ck_enrollment_document_status",
+        ),
+        CheckConstraint("current_version_number > 0", name="ck_enrollment_document_version"),
+        Index(
+            "ix_enrollment_documents_org_status",
+            "organization_id",
+            "status",
+            "updated_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    application_id: Mapped[UUID] = mapped_column(
+        ForeignKey("student_enrollment_applications.id", ondelete="CASCADE"), nullable=False
+    )
+    requirement_id: Mapped[UUID] = mapped_column(
+        ForeignKey("enrollment_document_requirements.id", ondelete="RESTRICT"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(30), default=EnrollmentDocumentStatus.SUBMITTED, nullable=False
+    )
+    current_version_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    reviewed_by_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_note: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class EnrollmentDocumentVersion(Base):
+    __tablename__ = "enrollment_document_versions"
+    __table_args__ = (
+        UniqueConstraint("document_id", "version_number", name="uq_enrollment_document_version"),
+        UniqueConstraint("storage_key", name="uq_enrollment_document_storage_key"),
+        CheckConstraint("version_number > 0", name="ck_enrollment_document_version_positive"),
+        CheckConstraint("size_bytes > 0", name="ck_enrollment_document_file_size"),
+        Index(
+            "ix_enrollment_document_versions_org_document",
+            "organization_id",
+            "document_id",
+            "version_number",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("enrollment_documents.id", ondelete="CASCADE"), nullable=False
+    )
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    uploaded_by_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class EnrollmentDocumentReview(Base):
+    __tablename__ = "enrollment_document_reviews"
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('under_review', 'approved', 'rejected', 'illegible', "
+            "'expired', 'resubmission_requested')",
+            name="ck_enrollment_document_review_decision",
+        ),
+        Index(
+            "ix_enrollment_document_reviews_org_document",
+            "organization_id",
+            "document_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("enrollment_documents.id", ondelete="CASCADE"), nullable=False
+    )
+    document_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("enrollment_document_versions.id", ondelete="RESTRICT"), nullable=False
+    )
+    decision: Mapped[str] = mapped_column(String(30), nullable=False)
+    note: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    reviewed_by_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )

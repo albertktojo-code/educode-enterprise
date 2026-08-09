@@ -136,14 +136,16 @@ def test_secretariat_frontend_uses_central_api_and_accessibility_states() -> Non
     app = (FRONTEND / "App.tsx").read_text(encoding="utf-8")
     layout = (FRONTEND / "components/AppLayout.tsx").read_text(encoding="utf-8")
     page = (FRONTEND / "pages/SchoolSecretariatPage.tsx").read_text(encoding="utf-8")
+    admissions_page = (FRONTEND / "pages/SchoolAdmissionsPage.tsx").read_text(encoding="utf-8")
+    capacity_page = (FRONTEND / "pages/SchoolCapacityPage.tsx").read_text(encoding="utf-8")
     api = (FRONTEND / "features/schoolAdmissions/api.ts").read_text(encoding="utf-8")
     assert 'path="secretaria"' in app
     assert 'to: "/secretaria"' in layout
     assert "manageOnly: true" in layout
     assert "schoolAdmissionsApi.dashboard" in page
     assert 'aria-live="polite"' in page
-    assert "Nenhuma capacidade configurada" in page
-    assert "Nenhuma pré-matrícula recebida" in page
+    assert "Nenhuma capacidade configurada" in capacity_page
+    assert "Nenhuma pré-matrícula recebida" in admissions_page
     assert "api.get<AdmissionsDashboard>" in api
     assert "fetch(" not in api
 
